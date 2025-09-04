@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cepheus Hauling Services</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4fd;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .instructions {
+            margin-top: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        ul, ol {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cepheus Hauling Services</h1>
+    <p>Welcome to the Cepheus Hauling Calculator. Enter your shipment details to estimate the fee for our null-sec hauling services within blue standings areas.</p>
+    
+    <form>
+        <label for="start">Start Location (System Name):</label>
+        <input type="text" id="start" placeholder="e.g., Jita">
+        
+        <label for="end">Destination Location (System Name):</label>
+        <input type="text" id="end" placeholder="e.g., 1DQ1-A">
+        
+        <label for="volume">Volume (m³):</label>
+        <input type="number" id="volume" min="0" step="0.01" placeholder="e.g., 50000">
+        
+        <label for="collateral">Collateral Value (ISK):</label>
+        <input type="number" id="collateral" min="0" step="1" placeholder="e.g., 1000000000">
+        
+        <button type="button" onclick="calculateFee()">Calculate Fee</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <div class="instructions">
+        <h2>Instructions</h2>
+        
+        <h3>How to Use the Site:</h3>
+        <ul>
+            <li>Enter the exact name of the starting solar system (e.g., "Jita").</li>
+            <li>Enter the exact name of the destination solar system (e.g., "1DQ1-A").</li>
+            <li>Input the total volume of your shipment in cubic meters (m³).</li>
+            <li>Input the collateral value, which is the estimated ISK value of the items being hauled.</li>
+            <li>Click "Calculate Fee" to get an estimate based on volume, 1% of the value, and the number of jumps.</li>
+            <li>Note: This calculator uses the EVE Online ESI API for route calculations. Fees are estimates; actual fees may vary based on current conditions.</li>
+        </ul>
+        
+        <h3>Steps to Create an In-Game Courier Contract:</h3>
+        <ol>
+            <li>Log into EVE Online and open the Contracts window (Alt+C or via the Neocom menu).</li>
+            <li>Click "Create Contract" and select "Courier" as the contract type.</li>
+            <li>Set the "From" location to your starting station or system.</li>
+            <li>Set the "To" location to the destination station or system.</li>
+            <li>Specify the volume (m³) and collateral (ISK value) matching what you entered here.</li>
+            <li>Set the reward to the calculated fee from this tool (or adjusted as needed).</li>
+            <li>Make the contract private to the Cepheus corporation (search for "Cepheus" in the assignee field).</li>
+            <li>Set an appropriate expiration time (e.g., 7 days) and days to complete (e.g., 3 days).</li>
+            <li>Review and create the contract. Our haulers will review and accept if it fits our service criteria.</li>
+            <li>Contact us in-game or via our recruitment channel if you have questions.</li>
+        </ol>
+    </div>
+    
+    <script>
+        async function calculateFee() {
+            const startName = document.getElementById('start').value.trim();
+            const endName = document.getElementById('end').value.trim();
+            const volume = parseFloat(document.getElementById('volume').value);
+            const collateral = parseFloat(document.getElementById('collateral').value);
+            
+            if (!startName || !endName || isNaN(volume) || isNaN(collateral)) {
+                alert('Please fill in all fields with valid values.');
+                return;
+            }
+            
+            const startID = await getSystemID(startName);
+            const endID = await getSystemID(endName);
+            
+            if (!startID || !endID) {
+                alert('Invalid system names. Please ensure they are exact EVE Online solar system names.');
+                return;
+            }
+            
+            const jumps = await getJumps(startID, endID);
+            
+            if (jumps === null) {
+                alert('No route found between the systems or API error.');
+                return;
+            }
+            
+            // Fee calculation: Adjust rates as needed
+            // - 1,000 ISK per m³ (example rate)
+            // - 1% of collateral value
+            // - 50,000 ISK per jump (example rate for null-sec)
+            const fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
+            
+            document.getElementById('result').innerHTML = `
+                <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
+                <p>Number of Jumps: ${jumps}</p>
+                <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
+                <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
+                <p>Jump Fee: ${(jumps * 50000).toLocaleString()} ISK</p>
+            `;
+        }
+        
+        async function getSystemID(name) {
+            try {
+                const response = await fetch(`https://esi.evetech.net/latest/search/?categories=solar_system&datasource=tranquility&language=en&search=${encodeURIComponent(name)}&strict=true`);
+                const data = await response.json();
+                if (data.solar_system && data.solar_system.length > 0) {
+                    return data.solar_system[0];
+                }
+                return null;
+            } catch (error) {
+                console.error('Error fetching system ID:', error);
+                return null;
+            }
+        }
+        
+        async function getJumps(startID, endID) {
+            try {
+                const response = await fetch(`https://esi.evetech.net/latest/route/${startID}/${endID}/?datasource=tranquility&flag=shortest`);
+                if (response.ok) {
+                    const route = await response.json();
+                    return route.length - 1; // Jumps = number of systems in route minus 1
+                }
+                return null;
+            } catch (error) {
+                console.error('Error fetching route:', error);
+                return null;
+            }
+        }
+    </script>
+</body>
+</html>
