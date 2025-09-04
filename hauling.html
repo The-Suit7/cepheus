@@ -42,21 +42,28 @@
         }
         nav {
             background: rgba(255, 255, 255, 0.9);
-            padding: 1rem;
+            padding: 0.5rem; /* Reduced padding */
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex; /* Use flexbox for side-by-side buttons */
+            justify-content: center; /* Center buttons horizontally */
+            gap: 0.5rem; /* Space between buttons */
+            flex-wrap: wrap; /* Allow wrapping on very small screens */
         }
         nav button {
             background: none;
             border: 2px solid #3498db;
             color: #3498db;
-            padding: 0.5rem 1rem;
-            margin: 0 1rem;
+            padding: 0.25rem 0.75rem; /* Reduced padding for smaller size */
+            margin: 0; /* Remove margin */
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1rem; /* Slightly smaller font */
             cursor: pointer;
             border-radius: 5px;
             transition: all 0.3s ease;
+            white-space: nowrap; /* Prevent text wrapping */
+            flex-shrink: 0; /* Prevent shrinking */
+            max-width: 150px; /* Limit button width */
         }
         nav button:hover {
             background-color: #3498db;
