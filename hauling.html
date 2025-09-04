@@ -33,7 +33,6 @@
             position: relative;
             z-index: 1;
         }
-        /* Media queries for responsive scaling */
         @media (max-width: 600px) {
             body {
                 background-size: cover; /* Switch to cover on small screens */
@@ -42,28 +41,32 @@
         }
         nav {
             background: rgba(255, 255, 255, 0.9);
-            padding: 0.5rem; /* Reduced padding */
+            padding: 0.5rem 0;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex; /* Use flexbox for side-by-side buttons */
-            justify-content: center; /* Center buttons horizontally */
-            gap: 0.5rem; /* Space between buttons */
-            flex-wrap: wrap; /* Allow wrapping on very small screens */
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
         }
         nav button {
             background: none;
             border: 2px solid #3498db;
             color: #3498db;
-            padding: 0.25rem 0.75rem; /* Reduced padding for smaller size */
-            margin: 0; /* Remove margin */
+            padding: 0.25rem 0.5rem;
+            margin: 0;
             font-weight: bold;
-            font-size: 1rem; /* Slightly smaller font */
+            font-size: 1rem;
             cursor: pointer;
             border-radius: 5px;
             transition: all 0.3s ease;
-            white-space: nowrap; /* Prevent text wrapping */
-            flex-shrink: 0; /* Prevent shrinking */
-            max-width: 150px; /* Limit button width */
+            white-space: nowrap;
+            flex-shrink: 0;
+            width: 120px;
+            height: 40px;
         }
         nav button:hover {
             background-color: #3498db;
@@ -71,12 +74,12 @@
             text-decoration: none;
         }
         h1, h2 {
-            color: #3498db; /* Bright light blue for title and subheadings */
-            text-align: center; /* Ensure centered alignment */
+            color: #3498db;
+            text-align: center;
         }
         p:first-of-type {
-            color: #3498db; /* Bright light blue for welcome message */
-            text-align: center; /* Ensure centered alignment */
+            color: #3498db;
+            text-align: center;
         }
         form {
             background: white;
@@ -84,7 +87,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             max-width: 800px;
-            margin: 20px auto;
+            margin: 60px auto 20px; /* Adjusted for fixed nav */
         }
         label {
             display: block;
@@ -121,11 +124,11 @@
             background: #e8f4fd;
             border-radius: 4px;
             font-weight: bold;
-            display: none; /* Hide by default */
-            max-width: 400px; /* Limit width */
+            display: none;
+            max-width: 400px;
             margin-left: auto;
-            margin-right: auto; /* Center the result */
-            font-size: 1.2rem; /* Controlled text size */
+            margin-right: auto;
+            font-size: 1.2rem;
         }
         #error {
             margin-top: 20px;
@@ -192,7 +195,7 @@
         <button onclick="window.location.href='combat.html'">Combat</button>
     </nav>
     
-    <h1>Hauling Services</h1>
+    <h1>Cepheus Hauling Services</h1>
     <p>Welcome to the Cepheus Hauling Calculator. Enter your shipment details to estimate the fee for our null-sec hauling services within blue standings areas.</p>
     
     <form>
@@ -249,17 +252,14 @@
         </ol>
     </div>
     
-    <script src="js/systemIDs.js"></script> <!-- External system ID mapping -->
+    <script src="js/systemIDs.js"></script>
     <script>
-        // Local system ID mapping (overridden by systemIDs.js)
         const systemIDs = {
-            // Example entries - overridden by external file
             "Jita": 30000142,
             "Amarr": 30002187,
             "Dodixie": 30002659
         };
 
-        // Autocomplete functionality
         function setupAutocomplete(inputId, dropdownId) {
             const input = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
@@ -330,7 +330,6 @@
             }
         }
 
-        // Initialize autocomplete for both inputs
         setupAutocomplete('start', 'start-autocomplete');
         setupAutocomplete('end', 'end-autocomplete');
 
@@ -339,12 +338,10 @@
             const resultDiv = document.getElementById('result');
             const errorDiv = document.getElementById('error');
             
-            // Clear previous results and errors
-            resultDiv.style.display = 'none'; // Hide result initially
+            resultDiv.style.display = 'none';
             resultDiv.innerHTML = '';
             errorDiv.style.display = 'none';
             
-            // Disable button and show loading state
             calculateBtn.disabled = true;
             calculateBtn.textContent = 'Calculating...';
             
@@ -358,7 +355,6 @@
                     throw new Error('Please fill in all fields with valid, non-negative values.');
                 }
                 
-                // Try local mapping first, then fall back to API
                 let startID = systemIDs[startName];
                 let endID = systemIDs[endName];
                 
@@ -385,21 +381,14 @@
                     if (jumps === null) {
                         throw new Error('No route found between the systems.');
                     }
-                    // Fee calculation: 1,000 ISK per m³, 1% of collateral, 50,000 ISK per jump
                     fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
-                    resultDiv.innerHTML = `
-                        <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
-                    `;
-                    resultDiv.style.display = 'block'; // Show result after calculation
+                    resultDiv.innerHTML = `<p>Contract Fee: ${fee.toLocaleString()} ISK</p>`;
+                    resultDiv.style.display = 'block';
                 } catch (error) {
-                    // Fallback: Calculate fee without jumps if route fails
                     console.warn('Route calculation failed, using fallback fee without jumps:', error.message);
                     fee = (volume * 1000) + (0.01 * collateral);
-                    resultDiv.innerHTML = `
-                        <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
-                        <p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
-                    `;
-                    resultDiv.style.display = 'block'; // Show result after calculation
+                    resultDiv.innerHTML = `<p>Contract Fee: ${fee.toLocaleString()} ISK</p><p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>`;
+                    resultDiv.style.display = 'block';
                     errorDiv.style.display = 'block';
                     errorDiv.innerHTML = 'Unable to calculate jumps due to ESI API error. Fee is an estimate without jump costs. Check <a href="https://status.esi.evetech.net">ESI API status</a>.';
                 }
@@ -448,9 +437,7 @@
                     try {
                         const data = await response.json();
                         if (data.error) errorMsg += ` (${data.error})`;
-                    } catch (e) {
-                        // No JSON response available
-                    }
+                    } catch (e) {}
                     throw new Error(errorMsg);
                 }
                 const data = await response.json();
@@ -481,9 +468,7 @@
                     try {
                         const data = await response.json();
                         if (data.error) errorMsg += ` (${data.error})`;
-                    } catch (e) {
-                        // No JSON response available
-                    }
+                    } catch (e) {}
                     throw new Error(errorMsg);
                 }
                 const route = await response.json();
