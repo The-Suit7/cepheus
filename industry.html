@@ -42,21 +42,32 @@
         }
         nav {
             background: rgba(255, 255, 255, 0.9);
-            padding: 1rem;
+            padding: 0.5rem 0;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex; /* Use flexbox for side-by-side buttons */
+            justify-content: center; /* Center buttons horizontally */
+            gap: 10px; /* Fixed space between buttons */
+            position: fixed; /* Fix position at the top */
+            top: 0;
+            width: 100%;
+            z-index: 100; /* Ensure it stays above content */
         }
         nav button {
             background: none;
             border: 2px solid #3498db;
             color: #3498db;
-            padding: 0.5rem 1rem;
-            margin: 0 1rem;
+            padding: 0.25rem 0.5rem; /* Reduced padding for consistent size */
+            margin: 0;
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1rem;
             cursor: pointer;
             border-radius: 5px;
             transition: all 0.3s ease;
+            white-space: nowrap; /* Prevent text wrapping */
+            flex-shrink: 0; /* Prevent shrinking */
+            width: 120px; /* Fixed width */
+            height: 40px; /* Fixed height */
         }
         nav button:hover {
             background-color: #3498db;
@@ -97,7 +108,7 @@
 <body>
     <nav>
         <button onclick="window.location.href='landing.html'">Home</button>
-        <button onclick="window.location.href='hauling.html'">Hauling Service</button>
+        <button onclick="window.location.href='hauling.html'">Hauling</button>
         <button onclick="window.location.href='industry.html'">Industry</button>
         <button onclick="window.location.href='combat.html'">Combat</button>
     </nav>
