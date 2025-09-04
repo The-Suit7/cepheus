@@ -9,7 +9,7 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-image: url('images/Cepheus.jpg'); /* Replace with your image path */
+            background-image: url('images/background.jpg'); /* Replace with your image path */
             background-size: 100% 100%; /* Stretch to fit width and height */
             background-position: center;
             background-repeat: no-repeat;
@@ -65,9 +65,11 @@
         }
         h1, h2 {
             color: #3498db; /* Bright light blue for title and subheadings */
+            text-align: center; /* Ensure centered alignment */
         }
         p:first-of-type {
             color: #3498db; /* Bright light blue for welcome message */
+            text-align: center; /* Ensure centered alignment */
         }
         form {
             background: white;
@@ -112,6 +114,11 @@
             background: #e8f4fd;
             border-radius: 4px;
             font-weight: bold;
+            display: none; /* Hide by default */
+            max-width: 400px; /* Limit width */
+            margin-left: auto;
+            margin-right: auto; /* Center the result */
+            font-size: 1.2rem; /* Controlled text size */
         }
         #error {
             margin-top: 20px;
@@ -326,6 +333,7 @@
             const errorDiv = document.getElementById('error');
             
             // Clear previous results and errors
+            resultDiv.style.display = 'none'; // Hide result initially
             resultDiv.innerHTML = '';
             errorDiv.style.display = 'none';
             
@@ -375,6 +383,7 @@
                     resultDiv.innerHTML = `
                         <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
                     `;
+                    resultDiv.style.display = 'block'; // Show result after calculation
                 } catch (error) {
                     // Fallback: Calculate fee without jumps if route fails
                     console.warn('Route calculation failed, using fallback fee without jumps:', error.message);
@@ -383,6 +392,7 @@
                         <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
                         <p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
                     `;
+                    resultDiv.style.display = 'block'; // Show result after calculation
                     errorDiv.style.display = 'block';
                     errorDiv.innerHTML = 'Unable to calculate jumps due to ESI API error. Fee is an estimate without jump costs. Check <a href="https://status.esi.evetech.net">ESI API status</a>.';
                 }
