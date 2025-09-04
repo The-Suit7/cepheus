@@ -111,7 +111,8 @@
             <li>Input the total volume of your shipment in cubic meters (m³).</li>
             <li>Input the collateral value, which is the estimated ISK value of the items being hauled.</li>
             <li>Click "Calculate Fee" to get an estimate based on volume, 1% of the value, and the number of jumps.</li>
-            <li>Note: This calculator uses the EVE Online ESI API for route calculations. Fees are estimates; actual fees may vary based on current conditions.</li>
+            <li>Note: This calculator uses the EVE Online ESI API for route calculations. If the API is down, an estimated fee without jump data will be provided. Fees are estimates; actual fees may vary.</li>
+            <li>If you see an error, check <a href="https://status.esi.evetech.net">ESI API status</a> or contact us in-game.</li>
         </ul>
         
         <h3>Steps to Create an In-Game Courier Contract:</h3>
@@ -163,21 +164,35 @@
                     throw new Error(`Invalid destination system name: "${endName}". Please use exact EVE Online system names (e.g., "1DQ1-A").`);
                 }
                 
-                const jumps = await retryFetch(() => getJumps(startID, endID));
-                if (jumps === null) {
-                    throw new Error('No route found between the systems or ESI API error. Please check system names or try again later.');
+                let jumps = null;
+                let fee;
+                try {
+                    jumps = await retryFetch(() => getJumps(startID, endID));
+                    if (jumps === null) {
+                        throw new Error('No route found between the systems.');
+                    }
+                    // Fee calculation: 1,000 ISK per m³, 1% of collateral, 50,000 ISK per jump
+                    fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
+                    resultDiv.innerHTML = `
+                        <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
+                        <p>Number of Jumps: ${jumps}</p>
+                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
+                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
+                        <p>Jump Fee: ${(jumps * 50000).toLocaleString()} ISK</p>
+                    `;
+                } catch (error) {
+                    // Fallback: Calculate fee without jumps if route fails
+                    console.warn('Route calculation failed, using fallback fee without jumps:', error.message);
+                    fee = (volume * 1000) + (0.01 * collateral);
+                    resultDiv.innerHTML = `
+                        <p>Estimated Fee (No Jump Data): ${fee.toLocaleString()} ISK</p>
+                        <p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
+                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
+                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
+                    `;
+                    errorDiv.style.display = 'block';
+                    errorDiv.innerHTML = 'Unable to calculate jumps due to ESI API error. Fee is an estimate without jump costs. Check <a href="https://status.esi.evetech.net">ESI API status</a>.';
                 }
-                
-                // Fee calculation: 1,000 ISK per m³, 1% of collateral, 50,000 ISK per jump
-                const fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
-                
-                resultDiv.innerHTML = `
-                    <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
-                    <p>Number of Jumps: ${jumps}</p>
-                    <p>Volume Fee: ${(volume * 2250).toLocaleString()} ISK</p>
-                    <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
-                    <p>Jump Fee: ${(jumps * 100000).toLocaleString()} ISK</p>
-                `;
             } catch (error) {
                 console.error('Error:', error.message);
                 errorDiv.style.display = 'block';
@@ -194,7 +209,7 @@
                     return await fetchFn();
                 } catch (error) {
                     if (attempt === maxRetries) throw error;
-                    console.warn(`Attempt ${attempt} failed. Retrying after ${delayMs}ms...`);
+                    console.warn(`Attempt ${attempt} failed. Retrying after ${delayMs}ms...`, error.message);
                     await new Promise(resolve => setTimeout(resolve, delayMs));
                 }
             }
@@ -204,19 +219,27 @@
             try {
                 const response = await fetch(`https://esi.evetech.net/latest/search/?categories=solar_system&datasource=tranquility&language=en&search=${encodeURIComponent(name)}&strict=true`);
                 if (!response.ok) {
-                    if (response.status === 429) {
-                        throw new Error('ESI API rate limit exceeded. Please wait a moment and try again.');
+                    let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
+                    if (response.status === 404) {
+                        errorMsg = `System "${name}" not found. Please check the spelling or use an exact EVE Online system name.`;
+                    } else if (response.status === 429) {
+                        errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
                     } else if ([502, 503, 520].includes(response.status)) {
-                        throw new Error(`ESI API server error (${response.status}). Please try again later.`);
-                    } else {
-                        throw new Error(`ESI API error: ${response.status} ${response.statusText}`);
+                        errorMsg = `ESI API server error (${response.status}). Please try again later.`;
                     }
+                    try {
+                        const data = await response.json();
+                        if (data.error) errorMsg += ` (${data.error})`;
+                    } catch (e) {
+                        // No JSON response available
+                    }
+                    throw new Error(errorMsg);
                 }
                 const data = await response.json();
                 return data.solar_system && data.solar_system.length > 0 ? data.solar_system[0] : null;
             } catch (error) {
                 console.error('Error fetching system ID:', error);
-                throw new Error('Failed to connect to EVE Online ESI API. Please try again later.');
+                throw error;
             }
         }
         
@@ -224,19 +247,27 @@
             try {
                 const response = await fetch(`https://esi.evetech.net/latest/route/${startID}/${endID}/?datasource=tranquility&flag=shortest`);
                 if (!response.ok) {
-                    if (response.status === 429) {
-                        throw new Error('ESI API rate limit exceeded. Please wait a moment and try again.');
+                    let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
+                    if (response.status === 404) {
+                        errorMsg = 'Route not found between the specified systems.';
+                    } else if (response.status === 429) {
+                        errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
                     } else if ([502, 503, 520].includes(response.status)) {
-                        throw new Error(`ESI API server error (${response.status}). Please try again later.`);
-                    } else {
-                        throw new Error(`ESI API error: ${response.status} ${response.statusText}`);
+                        errorMsg = `ESI API server error (${response.status}). Please try again later.`;
                     }
+                    try {
+                        const data = await response.json();
+                        if (data.error) errorMsg += ` (${data.error})`;
+                    } catch (e) {
+                        // No JSON response available
+                    }
+                    throw new Error(errorMsg);
                 }
                 const route = await response.json();
                 return route.length - 1; // Jumps = number of systems in route minus 1
             } catch (error) {
                 console.error('Error fetching route:', error);
-                throw new Error('Failed to calculate jumps. Please check system names or try again later.');
+                throw error;
             }
         }
     </script>
