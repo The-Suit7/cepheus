@@ -7,9 +7,8 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
             background-image: url('images/Cepheus.jpg'); /* Replace with your image path */
             background-size: 100% 100%; /* Stretch to fit width and height */
             background-position: center;
@@ -37,9 +36,32 @@
         /* Media queries for responsive scaling */
         @media (max-width: 600px) {
             body {
-                background-size: cover; /* Switch to cover on small screens to avoid excessive stretching */
+                background-size: cover; /* Switch to cover on small screens */
                 background-attachment: scroll; /* Allow scrolling on mobile */
             }
+        }
+        nav {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        nav button {
+            background: none;
+            border: 2px solid #3498db;
+            color: #3498db;
+            padding: 0.5rem 1rem;
+            margin: 0 1rem;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        nav button:hover {
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
         }
         h1, h2 {
             color: #3498db; /* Bright light blue for title and subheadings */
@@ -52,6 +74,8 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 20px auto;
         }
         label {
             display: block;
@@ -103,6 +127,8 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
         }
         ul, ol {
             margin-left: 20px;
@@ -145,6 +171,13 @@
     </style>
 </head>
 <body>
+    <nav>
+        <button onclick="window.location.href='landing.html'">Home</button>
+        <button onclick="window.location.href='hauling.html'">Hauling Service</button>
+        <button onclick="window.location.href='industry.html'">Industry</button>
+        <button onclick="window.location.href='combat.html'">Combat</button>
+    </nav>
+    
     <h1>Cepheus Hauling Services</h1>
     <p>Welcome to the Cepheus Hauling Calculator. Enter your shipment details to estimate the fee for our null-sec hauling services within blue standings areas.</p>
     
@@ -202,15 +235,14 @@
         </ol>
     </div>
     
-    <script src="js/systemIDs.js"></script> <!-- Added external script tag -->
+    <script src="js/systemIDs.js"></script> <!-- External system ID mapping -->
     <script>
-        // Local system ID mapping (common EVE systems) - This will be overridden by systemIDs.js
+        // Local system ID mapping (overridden by systemIDs.js)
         const systemIDs = {
-            // Example entries - will be overridden by the external file
+            // Example entries - overridden by external file
             "Jita": 30000142,
             "Amarr": 30002187,
-            "Dodixie": 30002659,
-            // Add all systems from SDE mapSolarSystems.sql here (overridden by external file)
+            "Dodixie": 30002659
         };
 
         // Autocomplete functionality
