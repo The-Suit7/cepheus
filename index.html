@@ -76,6 +76,13 @@
         ul, ol {
             margin-left: 20px;
         }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -111,7 +118,7 @@
             <li>Input the total volume of your shipment in cubic meters (m³).</li>
             <li>Input the collateral value, which is the estimated ISK value of the items being hauled.</li>
             <li>Click "Calculate Fee" to get an estimate based on volume, 1% of the value, and the number of jumps.</li>
-            <li>Note: This calculator uses the EVE Online ESI API for route calculations. If the API is down, an estimated fee without jump data will be provided. Fees are estimates; actual fees may vary.</li>
+            <li>Note: This calculator uses the EVE Online ESI API for route calculations. If the API is unavailable, an estimated fee without jump data will be provided. Fees are estimates; actual fees may vary.</li>
             <li>If you see an error, check <a href="https://status.esi.evetech.net">ESI API status</a> or contact us in-game.</li>
         </ul>
         
@@ -131,6 +138,30 @@
     </div>
     
     <script>
+        // Local system ID mapping (common EVE systems)
+        const systemIDs = {
+            "Jita": 30000142,
+            "Amarr": 30002187,
+            "Dodixie": 30002659,
+            "Rens": 30002510,
+            "Hek": 30002053,
+            "1DQ1-A": 30004759,
+            "HED-GP": 30003894,
+            "Taisy": 30003862,
+            "GE-8JV": 30003853,
+            "VFK-IV": 30003388,
+            "O1Y-ED": 30003396,
+            "6VDT-H": 30003390,
+            "D-GTMI": 30003871,
+            "R1O-GN": 30003392,
+            "T5ZI-S": 30003393,
+            "Utopia": 30003879,
+            "Curse": 30003878,
+            "Litom": 30003880,
+            "Tribute": 30003385,
+            "Vale of the Silent": 30003387
+        };
+
         async function calculateFee() {
             const calculateBtn = document.getElementById('calculateBtn');
             const resultDiv = document.getElementById('result');
@@ -154,14 +185,24 @@
                     throw new Error('Please fill in all fields with valid, non-negative values.');
                 }
                 
-                const startID = await retryFetch(() => getSystemID(startName));
+                // Try local mapping first, then fall back to API
+                let startID = systemIDs[startName];
+                let endID = systemIDs[endName];
+                
                 if (!startID) {
-                    throw new Error(`Invalid starting system name: "${startName}". Please use exact EVE Online system names (e.g., "Jita").`);
+                    try {
+                        startID = await retryFetch(() => getSystemID(startName));
+                    } catch (error) {
+                        throw new Error(`Invalid or unsupported starting system: "${startName}". Please use a supported EVE Online system name (e.g., "Jita").`);
+                    }
                 }
                 
-                const endID = await retryFetch(() => getSystemID(endName));
                 if (!endID) {
-                    throw new Error(`Invalid destination system name: "${endName}". Please use exact EVE Online system names (e.g., "1DQ1-A").`);
+                    try {
+                        endID = await retryFetch(() => getSystemID(endName));
+                    } catch (error) {
+                        throw new Error(`Invalid or unsupported destination system: "${endName}". Please use a supported EVE Online system name (e.g., "1DQ1-A").`);
+                    }
                 }
                 
                 let jumps = null;
@@ -217,11 +258,19 @@
         
         async function getSystemID(name) {
             try {
-                const response = await fetch(`https://esi.evetech.net/latest/search/?categories=solar_system&datasource=tranquility&language=en&search=${encodeURIComponent(name)}&strict=true`);
+                const response = await fetch(`https://esi.evetech.net/latest/universe/ids/?datasource=tranquility`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Accept-Language': 'en'
+                    },
+                    body: JSON.stringify([name])
+                });
                 if (!response.ok) {
                     let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
                     if (response.status === 404) {
-                        errorMsg = `System "${name}" not found. Please check the spelling or use an exact EVE Online system name.`;
+                        errorMsg = `System "${name}" not found in ESI API. Try a supported system or contact us in-game.`;
                     } else if (response.status === 429) {
                         errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
                     } else if ([502, 503, 520].includes(response.status)) {
@@ -236,7 +285,7 @@
                     throw new Error(errorMsg);
                 }
                 const data = await response.json();
-                return data.solar_system && data.solar_system.length > 0 ? data.solar_system[0] : null;
+                return data.solar_systems && data.solar_systems.length > 0 ? data.solar_systems[0].id : null;
             } catch (error) {
                 console.error('Error fetching system ID:', error);
                 throw error;
@@ -245,11 +294,16 @@
         
         async function getJumps(startID, endID) {
             try {
-                const response = await fetch(`https://esi.evetech.net/latest/route/${startID}/${endID}/?datasource=tranquility&flag=shortest`);
+                const response = await fetch(`https://esi.evetech.net/route/${startID}/${endID}/?datasource=tranquility&flag=shortest`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Language': 'en'
+                    }
+                });
                 if (!response.ok) {
                     let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
                     if (response.status === 404) {
-                        errorMsg = 'Route not found between the specified systems.';
+                        errorMsg = 'Route not found between the specified systems. Please verify system names or check ESI API status.';
                     } else if (response.status === 429) {
                         errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
                     } else if ([502, 503, 520].includes(response.status)) {
