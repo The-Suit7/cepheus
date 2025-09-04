@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cepheus Hauling Services</title>
+    <title>Hauling Services</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -46,17 +46,14 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: center;
-            gap: 10px;
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 100;
+            gap: 0.5rem;
+            flex-wrap: wrap; /* Allow wrapping on very small screens */
         }
         nav button {
             background: none;
             border: 2px solid #3498db;
             color: #3498db;
-            padding: 0.25rem 0.5rem;
+            padding:  0.25rem 0.75rem; /* Reduced padding for smaller size */
             margin: 0;
             font-weight: bold;
             font-size: 1rem;
@@ -65,8 +62,7 @@
             transition: all 0.3s ease;
             white-space: nowrap;
             flex-shrink: 0;
-            width: 120px;
-            height: 40px;
+            max-width: 150px;
         }
         nav button:hover {
             background-color: #3498db;
@@ -87,7 +83,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             max-width: 800px;
-            margin: 100px auto 20px; /* Adjusted for fixed nav */
+            margin: 20px auto; /* Adjusted for fixed nav */
         }
         label {
             display: block;
