@@ -33,7 +33,6 @@
             position: relative;
             z-index: 1;
         }
-        /* Media query for responsive scaling on small screens */
         @media (max-width: 600px) {
             body {
                 background-size: cover; /* Preserves aspect ratio on mobile */
@@ -45,29 +44,29 @@
             padding: 0.5rem 0;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: flex; /* Use flexbox for side-by-side buttons */
-            justify-content: center; /* Center buttons horizontally */
-            gap: 10px; /* Fixed space between buttons */
-            position: fixed; /* Fix position at the top */
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            position: fixed;
             top: 0;
             width: 100%;
-            z-index: 100; /* Ensure it stays above content */
+            z-index: 100;
         }
         nav button {
             background: none;
             border: 2px solid #3498db;
             color: #3498db;
-            padding: 0.25rem 0.5rem; /* Reduced padding for consistent size */
+            padding: 0.25rem 0.5rem;
             margin: 0;
             font-weight: bold;
             font-size: 1rem;
             cursor: pointer;
             border-radius: 5px;
             transition: all 0.3s ease;
-            white-space: nowrap; /* Prevent text wrapping */
-            flex-shrink: 0; /* Prevent shrinking */
-            width: 120px; /* Fixed width */
-            height: 40px; /* Fixed height */
+            white-space: nowrap;
+            flex-shrink: 0;
+            width: 120px;
+            height: 40px;
         }
         nav button:hover {
             background-color: #3498db;
@@ -75,26 +74,20 @@
             text-decoration: none;
         }
         .content {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: calc(100vh - 60px); /* Adjust for nav height */
+            max-width: 800px;
+            margin: 60px auto 20px; /* Adjusted for fixed nav */
             padding: 20px;
-        }
-        .corp-info {
             background: rgba(255, 255, 255, 0.85); /* 15% transparent white */
-            padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
             text-align: center;
         }
-        .corp-info h1 {
+        .content h1 {
             color: #3498db;
             font-size: 2.5rem;
             margin-bottom: 1rem;
         }
-        .corp-info p {
+        .content p {
             color: #333;
             font-size: 1.2rem;
             line-height: 1.6;
@@ -109,30 +102,25 @@
 <body>
     <nav>
         <button onclick="window.location.href='landing.html'">Home</button>
-        <button onclick="window.location.href='hauling.html'">Hauling Service</button>
+        <button onclick="window.location.href='hauling.html'">Hauling</button>
         <button onclick="window.location.href='industry.html'">Industry</button>
         <button onclick="window.location.href='combat.html'">Combat</button>
     </nav>
     
     <div class="content">
-        <div class="corp-info">
-            <h1>Cepheus</h1>
-            <p>Welcome to <span class="highlight">Cepheus</span>, a thriving null-sec corporation in the game Eve Online dedicated to empowering its members. Based in the untamed frontiers of null security space, we offer robust programs like buyback, industry manufacturing, and ship replacement, channeling most earnings back to our pilots for high ISK potential. New players are warmly welcomed with veteran mentorship, while our community thrives on fun, strategic PVP engagements.</p>
-            <p>Contact us in-game at <span class="highlight">Cepheus. Public</span>!</p>
-        </div>
+        <h1>Cepheus</h1>
+        <p>Welcome to <span class="highlight">Cepheus</span>, a thriving null-sec corporation dedicated to empowering its members. Based in the untamed frontiers of null security space, we offer robust programs like buyback, industry manufacturing, and ship replacement, channeling most earnings back to our pilots for high ISK potential. New players are warmly welcomed with veteran mentorship, while our community thrives on fun, strategic PVP engagements.</p>
+        <p>Contact us in-game at <span class="highlight">Cepheus. Public</span>!</p>
     </div>
     
-    <script src="js/systemIDs.js"></script> <!-- External system ID mapping -->
+    <script src="js/systemIDs.js"></script>
     <script>
-        // Local system ID mapping (overridden by systemIDs.js)
         const systemIDs = {
-            // Example entries - overridden by external file
             "Jita": 30000142,
             "Amarr": 30002187,
             "Dodixie": 30002659
         };
 
-        // Autocomplete functionality (for future use, e.g., on sub-pages)
         function setupAutocomplete(inputId, dropdownId) {
             const input = document.getElementById(inputId);
             const dropdown = document.getElementById(dropdownId);
@@ -203,12 +191,9 @@
             }
         }
 
-        // Initialize autocomplete (optional for this page, included for consistency)
-        // Note: No input fields here, so this is a placeholder for sub-pages
+        // Placeholder for consistency, no inputs here
         // setupAutocomplete('start', 'start-autocomplete');
         // setupAutocomplete('end', 'end-autocomplete');
-
-        // No calculateFee function needed on landing page
     </script>
 </body>
 </html>
