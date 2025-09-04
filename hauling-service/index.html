@@ -10,7 +10,7 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-image: url('images/Cepheus.jpg'); /* Replace with your image path */
+            background-image: url('images/background.jpg'); /* Replace with your image path */
             background-size: 100% 100%; /* Stretch to fit width and height */
             background-position: center;
             background-repeat: no-repeat;
@@ -202,29 +202,15 @@
         </ol>
     </div>
     
+    <script src="js/systemIDs.js"></script> <!-- Added external script tag -->
     <script>
-        // Local system ID mapping (common EVE systems)
+        // Local system ID mapping (common EVE systems) - This will be overridden by systemIDs.js
         const systemIDs = {
+            // Example entries - will be overridden by the external file
             "Jita": 30000142,
             "Amarr": 30002187,
             "Dodixie": 30002659,
-            "Rens": 30002510,
-            "Hek": 30002053,
-            "1DQ1-A": 30004759,
-            "HED-GP": 30003894,
-            "Taisy": 30003862,
-            "GE-8JV": 30003853,
-            "VFK-IV": 30003388,
-            "O1Y-ED": 30003396,
-            "6VDT-H": 30003390,
-            "D-GTMI": 30003871,
-            "R1O-GN": 30003392,
-            "T5ZI-S": 30003393,
-            "Utopia": 30003879,
-            "Curse": 30003878,
-            "Litom": 30003880,
-            "Tribute": 30003385,
-            "Vale of the Silent": 30003387
+            // Add all systems from SDE mapSolarSystems.sql here (overridden by external file)
         };
 
         // Autocomplete functionality
@@ -333,7 +319,7 @@
                     try {
                         startID = await retryFetch(() => getSystemID(startName));
                     } catch (error) {
-                        throw new Error(`Invalid or unsupported starting system: "${startName}". Please use a supported EVE Online system name (e.g., "Jita").`);
+                        throw new Error(`Invalid or unsupported starting system: "${startName}". Please use a supported EVE Online system name.`);
                     }
                 }
                 
@@ -341,7 +327,7 @@
                     try {
                         endID = await retryFetch(() => getSystemID(endName));
                     } catch (error) {
-                        throw new Error(`Invalid or unsupported destination system: "${endName}". Please use a supported EVE Online system name (e.g., "1DQ1-A").`);
+                        throw new Error(`Invalid or unsupported destination system: "${endName}". Please use a supported EVE Online system name.`);
                     }
                 }
                 
