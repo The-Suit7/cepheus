@@ -10,8 +10,36 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f4f4f4;
+            background-image: url('images/Cepheus.jpg'); /* Replace with your image path */
+            background-size: 100% 100%; /* Stretch to fit width and height */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* Prevents scrolling issues */
+            background-color: #f4f4f4; /* Fallback color */
             color: #333;
+            position: relative;
+            min-height: 100vh; /* Ensure full viewport height */
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Overlay to improve text readability */
+            z-index: 0;
+        }
+        body > * {
+            position: relative;
+            z-index: 1;
+        }
+        /* Media queries for responsive scaling */
+        @media (max-width: 600px) {
+            body {
+                background-size: cover; /* Switch to cover on small screens to avoid excessive stretching */
+                background-attachment: scroll; /* Allow scrolling on mobile */
+            }
         }
         h1, h2 {
             color: #2c3e50;
@@ -83,6 +111,34 @@
         a:hover {
             text-decoration: underline;
         }
+        .autocomplete-container {
+            position: relative;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .autocomplete-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .autocomplete-item:hover, .autocomplete-item:focus {
+            background-color: #e8f4fd;
+        }
+        .autocomplete-item.active {
+            background-color: #3498db;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -90,11 +146,17 @@
     <p>Welcome to the Cepheus Hauling Calculator. Enter your shipment details to estimate the fee for our null-sec hauling services within blue standings areas.</p>
     
     <form>
-        <label for="start">Start Location (System Name):</label>
-        <input type="text" id="start" placeholder="e.g., Jita">
+        <div class="autocomplete-container">
+            <label for="start">Start Location (System Name):</label>
+            <input type="text" id="start" placeholder="e.g., Jita" autocomplete="off">
+            <div id="start-autocomplete" class="autocomplete-dropdown"></div>
+        </div>
         
-        <label for="end">Destination Location (System Name):</label>
-        <input type="text" id="end" placeholder="e.g., 1DQ1-A">
+        <div class="autocomplete-container">
+            <label for="end">Destination Location (System Name):</label>
+            <input type="text" id="end" placeholder="e.g., 1DQ1-A" autocomplete="off">
+            <div id="end-autocomplete" class="autocomplete-dropdown"></div>
+        </div>
         
         <label for="volume">Volume (m³):</label>
         <input type="number" id="volume" min="0" step="0.01" placeholder="e.g., 50000">
@@ -113,8 +175,8 @@
         
         <h3>How to Use the Site:</h3>
         <ul>
-            <li>Enter the exact name of the starting solar system (e.g., "Jita").</li>
-            <li>Enter the exact name of the destination solar system (e.g., "1DQ1-A").</li>
+            <li>Enter the starting solar system (e.g., "Jita"). As you type, select from the dropdown of matching system names.</li>
+            <li>Enter the destination solar system (e.g., "1DQ1-A"). Use the dropdown to ensure exact spelling.</li>
             <li>Input the total volume of your shipment in cubic meters (m³).</li>
             <li>Input the collateral value, which is the estimated ISK value of the items being hauled.</li>
             <li>Click "Calculate Fee" to get an estimate based on volume, 1% of the value, and the number of jumps.</li>
@@ -129,11 +191,11 @@
             <li>Set the "From" location to your starting station or system.</li>
             <li>Set the "To" location to the destination station or system.</li>
             <li>Specify the volume (m³) and collateral (ISK value) matching what you entered here.</li>
-            <li>Set the reward to the calculated fee from this tool (or adjusted as needed).</li>
-            <li>Make the contract private to the Cepheus corporation (search for "Cepheus" in the assignee field).</li>
-            <li>Set an appropriate expiration time (e.g., 7 days) and days to complete (e.g., 3 days).</li>
+            <li>Set the reward to the Estimated Fee after you click Calculate Fee from this tool (or adjusted as needed).</li>
+            <li>Make the contract private to the "Cepheus." corporation (search for "Cepheus." in the assignee field).</li>
+            <li>Set an Expiration time to 3 days and the Completion time to 3 days.</li>
             <li>Review and create the contract. Our haulers will review and accept if it fits our service criteria.</li>
-            <li>Contact us in-game or via our recruitment channel if you have questions.</li>
+            <li>Contact us in-game "Cepheus. Hauling Service" channel if you have questions.</li>
         </ol>
     </div>
     
@@ -161,6 +223,81 @@
             "Tribute": 30003385,
             "Vale of the Silent": 30003387
         };
+
+        // Autocomplete functionality
+        function setupAutocomplete(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            let activeIndex = -1;
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                dropdown.style.display = 'none';
+                activeIndex = -1;
+
+                if (value) {
+                    const matches = Object.keys(systemIDs).filter(system => 
+                        system.toLowerCase().includes(value)
+                    );
+                    if (matches.length > 0) {
+                        matches.forEach((system, index) => {
+                            const item = document.createElement('div');
+                            item.className = 'autocomplete-item';
+                            item.textContent = system;
+                            item.tabIndex = -1;
+                            item.addEventListener('click', () => {
+                                input.value = system;
+                                dropdown.innerHTML = '';
+                                dropdown.style.display = 'none';
+                            });
+                            dropdown.appendChild(item);
+                        });
+                        dropdown.style.display = 'block';
+                    }
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.getElementsByClassName('autocomplete-item');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                    updateActiveItem(items, activeIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, -1);
+                    updateActiveItem(items, activeIndex);
+                } else if (e.key === 'Enter' && activeIndex >= 0) {
+                    e.preventDefault();
+                    input.value = items[activeIndex].textContent;
+                    dropdown.innerHTML = '';
+                    dropdown.style.display = 'none';
+                    activeIndex = -1;
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    dropdown.innerHTML = '';
+                    dropdown.style.display = 'none';
+                    activeIndex = -1;
+                }, 200);
+            });
+
+            function updateActiveItem(items, index) {
+                Array.from(items).forEach((item, i) => {
+                    item.classList.toggle('active', i === index);
+                    if (i === index) item.focus();
+                });
+            }
+        }
+
+        // Initialize autocomplete for both inputs
+        setupAutocomplete('start', 'start-autocomplete');
+        setupAutocomplete('end', 'end-autocomplete');
 
         async function calculateFee() {
             const calculateBtn = document.getElementById('calculateBtn');
@@ -215,21 +352,15 @@
                     // Fee calculation: 1,000 ISK per m³, 1% of collateral, 50,000 ISK per jump
                     fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
                     resultDiv.innerHTML = `
-                        <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
-                        <p>Number of Jumps: ${jumps}</p>
-                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
-                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
-                        <p>Jump Fee: ${(jumps * 50000).toLocaleString()} ISK</p>
+                        <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
                     `;
                 } catch (error) {
                     // Fallback: Calculate fee without jumps if route fails
                     console.warn('Route calculation failed, using fallback fee without jumps:', error.message);
                     fee = (volume * 1000) + (0.01 * collateral);
                     resultDiv.innerHTML = `
-                        <p>Estimated Fee (No Jump Data): ${fee.toLocaleString()} ISK</p>
+                        <p>Contract Fee: ${fee.toLocaleString()} ISK</p>
                         <p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
-                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
-                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
                     `;
                     errorDiv.style.display = 'block';
                     errorDiv.innerHTML = 'Unable to calculate jumps due to ESI API error. Fee is an estimate without jump costs. Check <a href="https://status.esi.evetech.net">ESI API status</a>.';
