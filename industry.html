@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cepheus - Industry</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('images/Cepheus.jpg'); /* Replace with your image path */
+            background-size: 100% 100%; /* Stretch to fit width and height */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* Prevents scrolling issues */
+            background-color: #f4f4f4; /* Fallback color */
+            color: #333;
+            position: relative;
+            min-height: 100vh; /* Ensure full viewport height */
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Overlay to improve text readability */
+            z-index: 0;
+        }
+        body > * {
+            position: relative;
+            z-index: 1;
+        }
+        /* Media queries for responsive scaling */
+        @media (max-width: 600px) {
+            body {
+                background-size: cover; /* Switch to cover on small screens */
+                background-attachment: scroll; /* Allow scrolling on mobile */
+            }
+        }
+        nav {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        nav button {
+            background: none;
+            border: 2px solid #3498db;
+            color: #3498db;
+            padding: 0.5rem 1rem;
+            margin: 0 1rem;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        nav button:hover {
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+        }
+        .content {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.85); /* Semi-transparent white for readability */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #3498db;
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        h2 {
+            color: #3498db;
+            font-size: 1.8rem;
+            margin-top: 2rem;
+        }
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        ul {
+            list-style-type: disc;
+            margin-left: 20px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <button onclick="window.location.href='landing.html'">Home</button>
+        <button onclick="window.location.href='hauling.html'">Hauling Service</button>
+        <button onclick="window.location.href='industry.html'">Industry</button>
+        <button onclick="window.location.href='combat.html'">Combat</button>
+    </nav>
+    
+    <div class="content">
+        <h1>Cepheus Industry</h1>
+        <p>Cepheus offers comprehensive industry manufacturing services in null-sec space. We specialize in producing a wide range of ships, modules, and structures to support our members and alliance operations. Below is an overview of our production capabilities:</p>
+        
+        <h2>Subcapital Ships</h2>
+        <p>We manufacture all subcapital ship classes, including frigates, destroyers, cruisers, battlecruisers, battleships, and industrial ships. Our efficient production lines ensure quick turnaround for fleet needs.</p>
+        
+        <h2>Capital Ships</h2>
+        <p>Our advanced facilities produce capital ships up to carriers and dreadnoughts, providing essential support for large-scale operations in null-sec.</p>
+        
+        <h2>Modules</h2>
+        <p>We produce T1 and T2 modules, covering weapons, armor, shields, propulsion, and electronics to equip your ships with reliable gear.</p>
+        
+        <h2>Structures</h2>
+        <p>Cepheus builds deployable structures for null-sec infrastructure, including citadels, engineering complexes, and refineries to establish and maintain our presence in space.</p>
+        
+        <p>For custom orders or inquiries, contact us in-game at <span style="color: #3498db; font-weight: bold;">Cepheus. Public</span>!</p>
+    </div>
+    
+    <script src="js/systemIDs.js"></script> <!-- External system ID mapping -->
+    <script>
+        // Local system ID mapping (overridden by systemIDs.js)
+        const systemIDs = {
+            // Example entries - overridden by external file
+            "Jita": 30000142,
+            "Amarr": 30002187,
+            "Dodixie": 30002659
+        };
+
+        // Autocomplete functionality (for future use, e.g., on sub-pages)
+        function setupAutocomplete(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            let activeIndex = -1;
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                dropdown.style.display = 'none';
+                activeIndex = -1;
+
+                if (value) {
+                    const matches = Object.keys(systemIDs).filter(system => 
+                        system.toLowerCase().includes(value)
+                    );
+                    if (matches.length > 0) {
+                        matches.forEach((system, index) => {
+                            const item = document.createElement('div');
+                            item.className = 'autocomplete-item';
+                            item.textContent = system;
+                            item.tabIndex = -1;
+                            item.addEventListener('click', () => {
+                                input.value = system;
+                                dropdown.innerHTML = '';
+                                dropdown.style.display = 'none';
+                            });
+                            dropdown.appendChild(item);
+                        });
+                        dropdown.style.display = 'block';
+                    }
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.getElementsByClassName('autocomplete-item');
+                if (items.length === 0) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                    updateActiveItem(items, activeIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, -1);
+                    updateActiveItem(items, activeIndex);
+                } else if (e.key === 'Enter' && activeIndex >= 0) {
+                    e.preventDefault();
+                    input.value = items[activeIndex].textContent;
+                    dropdown.innerHTML = '';
+                    dropdown.style.display = 'none';
+                    activeIndex = -1;
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    dropdown.innerHTML = '';
+                    dropdown.style.display = 'none';
+                    activeIndex = -1;
+                }, 200);
+            });
+
+            function updateActiveItem(items, index) {
+                Array.from(items).forEach((item, i) => {
+                    item.classList.toggle('active', i === index);
+                    if (i === index) item.focus();
+                });
+            }
+        }
+
+        // Initialize autocomplete (optional for this page, included for consistency)
+        // Note: No input fields here, so this is a placeholder for sub-pages
+        // setupAutocomplete('start', 'start-autocomplete');
+        // setupAutocomplete('end', 'end-autocomplete');
+
+        // No calculateFee function needed on industry page
+    </script>
+</body>
+</html>
