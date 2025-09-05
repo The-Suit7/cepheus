@@ -255,14 +255,13 @@
             <li>Set the "From" location to your starting station or system.</li>
             <li>Set the "To" location to the destination station or system.</li>
             <li>Specify the volume (m³) and collateral (ISK value) matching what you entered here.</li>
-            <li>Set the reward to the Estimated Fee after you click Calculate Fee from this tool (or adjusted as needed).</li>
+            <li>Set the reward to the Contract Reward after you click Calculate Fee from this tool (or adjusted as needed).</li>
             <li>Make the contract private to the "Cepheus." corporation (search for "Cepheus." in the assignee field).</li>
             <li>Set an Expiration time to 3 days and the Completion time to 3 days.</li>
             <li>Review and create the contract. Our haulers will review and accept if it fits our service criteria.</li>
             <li>Contact us in-game at <span class="channel">Cepheus. Public</span> if you have questions.</li>
         </ol>
-    </div>
-  
+    </div>  
     <script>
         // Local system ID mapping (common EVE systems)
         const systemIDs = {
@@ -8822,23 +8821,12 @@
                         throw new Error('No valid route found between the systems.');
                     }
                     fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
-                    resultDiv.innerHTML = `
-                        <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
-                        <p>Number of Jumps: ${jumps}</p>
-                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
-                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
-                        <p>Jump Fee: ${(jumps * 50000).toLocaleString()} ISK</p>
-                    `;
+                    resultDiv.innerHTML = `<p>Contract Reward: ${fee.toLocaleString()} ISK</p>`;
                     console.log("Result set:", resultDiv.innerHTML);
                 } catch (routeError) {
                     console.warn('Route calculation failed:', routeError.message);
                     fee = (volume * 1000) + (0.01 * collateral);
-                    resultDiv.innerHTML = `
-                        <p>Estimated Fee (No Jump Data): ${fee.toLocaleString()} ISK</p>
-                        <p><strong>Warning:</strong> Jump data unavailable. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
-                        <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
-                        <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
-                    `;
+                    resultDiv.innerHTML = `<p>Contract Reward: ${fee.toLocaleString()} ISK</p>`;
                     console.log("Fallback result set:", resultDiv.innerHTML);
                 }
                 resultDiv.style.display = 'block'; // Ensure visibility
