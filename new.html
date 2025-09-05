@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cepheus - New Member Orientation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('images/Cepheus.jpg'); /* Update this path to your uploaded image */
+            background-size: 100% 100%; /* Stretch to fit width and height */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* Maintains image position during scroll */
+            background-color: #f4f4f4; /* Fallback color if image fails */
+            color: #333;
+            position: relative;
+            min-height: 100vh; /* Ensures full viewport height */
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Overlay for readability */
+            z-index: 0;
+        }
+        body > * {
+            position: relative;
+            z-index: 1;
+        }
+        @media (max-width: 600px) {
+            body {
+                background-size: cover; /* Preserves aspect ratio on mobile */
+                background-attachment: scroll; /* Allows scrolling on mobile */
+            }
+        }
+        nav {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem 0;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+        }
+        nav button {
+            background: none;
+            border: 2px solid #3498db;
+            color: #3498db;
+            padding: 0.25rem 0.5rem;
+            margin: 0;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+            width: 120px;
+            height: 40px;
+        }
+        nav button:hover {
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+        }
+        .content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 60px); /* Adjust for nav height */
+            padding: 20px;
+        }
+        .corp-info {
+            background: rgba(255, 255, 255, 0.85); /* 15% transparent white */
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            /* Removed text-align: center */
+        }
+        .corp-info h1 {
+            color: #3498db;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .corp-info h2 {
+            color: #3498db;
+            font-size: 1.8rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .corp-info p, .corp-info ul {
+            color: #333;
+            font-size: 1.2rem;
+            line-height: 1.4; /* Reduced for tighter spacing */
+            margin: 0.5rem 0; /* Reduced vertical margin */
+        }
+        .corp-info ul {
+            margin-left: 15px; /* Reduced from 20px for tighter bullet alignment */
+            padding-left: 0; /* Remove default padding */
+            list-style-position: inside; /* Keeps bullets closer to text */
+        }
+        .corp-info li {
+            margin: 0.3rem 0; /* Reduced vertical spacing between list items */
+        }
+        .corp-info img {
+            max-width: 100%;
+            height: auto;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+        .highlight {
+            color: #3498db;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <button onclick="window.location.href='landing.html'">Home</button>
+        <button onclick="window.location.href='hauling.html'">Hauling</button>
+        <button onclick="window.location.href='industry.html'">Industry</button>
+        <button onclick="window.location.href='combat.html'">Combat</button>
+    </nav>
+   
+    <div class="content">
+        <div class="corp-info">
+            <h1>Cepheus New Member Orientation</h1>
+            <p>Hey there, fresh-faced capsuleer! Welcome to <span class="highlight">Cepheus</span>, your new null-sec home where we’re all about dominating 0.0 space with style and camaraderie! We’re stoked to have you join our crew, and we’re here to get you up to speed with the essentials. From juicy ISK-making ops to epic PVP roams, we’ve got a ton of action lined up. Let’s break down what you need to know to hit the ground running—strap in and let’s fly together!</p>
+            
+            <h2>Welcome</h2>
+            <p>Greetings, pilot! You’ve just docked with Cepheus, a vibrant null-sec corp thriving in the lawless depths of 0.0. We’re a tight-knit gang of fleet warriors who love stacking ISK, crafting hulls, and blasting enemies in strategic brawls. Whether you’re a green rookie or a battle-hardened vet, we’ve got mentorship and a warm welcome waiting. Our goal? Empower you to rise through the ranks and make your mark in New Eden. Excited yet? Let’s get you kitted out!</p>
+            <img src="images/welcome_eve.jpg" alt="EVE Online welcome scene with a new pilot in a station">
+
+            <h2>Rules</h2>
+            <p>Hey pilot, let’s keep the fleet running smooth and avoid mid-battle chaos! Cepheus has some key guidelines to ensure we all thrive in this wild null-sec life. Strap in for the rundown:</p>
+            <ul>
+                <li><strong>Be Able to Afford a Loss</strong>
+                    <ul>
+                        <li>Never undock in a ship (or with cargo) you can’t afford to lose—even in hi-sec! Fly only what you can replace and refit yourself.</li>
+                        <li>Don’t grant corp rights to assets you’d cry over losing—no exceptions, keep your hangar secure!</li>
+                    </ul>
+                </li>
+                <li><strong>Consent to PvP</strong>
+                    <ul>
+                        <li>Clicking "undock" means you’re fair game for a fight—PvP is the name of the game!</li>
+                        <li>Don’t expect CONCORD to save you in 1.0 space; they punish, not protect—get comfy with that reality.</li>
+                        <li>100% safety? Dock up in a station or cloak at a secret safespot—anything else is a gamble!</li>
+                    </ul>
+                </li>
+                <li><strong>Everyone Can Scam - And So Can You</strong>
+                    <ul>
+                        <li>Free stuff offers? Likely traps—stay sharp and skeptical.</li>
+                        <li>Even your mined minerals aren’t truly "free"—watch for hidden costs.</li>
+                        <li>If it sounds too good to be true, it probably is—paranoia is your friend, double-check everything!</li>
+                        <li>Scamming and some "griefing" are baked into EVE’s mechanics and even rewarded—go for it if you dare! But never scam or grief corp members or blues—keep the family clean!</li>
+                        <li>Harassment or real-life threats? That’s a ban-worthy line—know the difference and keep it clean.</li>
+                    </ul>
+                </li>
+                <li><strong>Experience Matters, Not ISK or Skills</strong>
+                    <ul>
+                        <li>A fresh 5-minute-old alt could be a vet—many run multiple toons, while year-old newbies pop up too.</li>
+                        <li>Skills under 1 day to train are short; over a week is long—plan your grind accordingly.</li>
+                        <li>This is a long-haul game—don’t expect to rule New Eden on day one of your trial account.</li>
+                        <li>Numbers often beat ship value in a fight, but experience and skill levels trump all—2 mil SP combat newbs can smash 60 mil SP industrial vets!</li>
+                    </ul>
+                </li>
+                <li><strong>Bigger Is Not Always Better</strong>
+                    <ul>
+                        <li>Expensive ships aren’t always superior—choose wisely!</li>
+                        <li>Better gear costs way more than slightly worse stuff—balance your fit.</li>
+                        <li>Tech-2 can be cheaper and stronger but harder to fit—sometimes it’s neither, so test it out.</li>
+                        <li>No "solopwnmobiles" exist—everything blows up with enough DPS!</li>
+                        <li>With skill and experience, ship size barely matters—fly what fits your style.</li>
+                    </ul>
+                </li>
+                <li><strong>Use the In-Game Info</strong>
+                    <ul>
+                        <li>Master "Show Info" and "Variants → Compare"—check every module and ship before undocking.</li>
+                        <li>Insure your hull pre-undock, though T2 ships? Eh, less critical.</li>
+                    </ul>
+                </li>
+                <li><strong>Unfair Circumstances?</strong>
+                    <ul>
+                        <li>No such thing as a "fair fight"—it’s just a fight, circumstances be damned!</li>
+                        <li>You can fly it, but should you? Think twice before undocking that shiny new cap.</li>
+                    </ul>
+                </li>
+                <li><strong>You Will Lose Stuff, Don’t Worry!</strong>
+                    <ul>
+                        <li>PvP long enough, and your ship’s toast—it’s a when, not if, deal.</li>
+                        <li>Logoff in space? Safe after 1 minute without a PvP timer, 15 with one—don’t bail mid-fight, you’ll just die anyway!</li>
+                        <li>Someone out there has better skills, more mates, or more uptime—hope they’re not hunting you!</li>
+                        <li>Lost your gear? It’s almost always your call—own it and learn, we’ve got your back to rebound!</li>
+                    </ul>
+                </li>
+                <li><strong>No Blue Killing</strong>
+                    <ul>
+                        <li>Blues are family—don't shoot 'em! If you've got beef with a blue, bring it to corp leadership for resolution, don't take matters into your own pod.</li>
+                    </ul>
+                </li>
+                <li><strong>Keep Operations Local</strong>
+                    <ul>
+                        <li>Stick close to home for most ops, ideally in our core system, so we can back each other up fast and defend our Sov like a well-oiled fleet.</li>
+                    </ul>
+                </li>
+                <li><strong>Join Discord</strong>
+                    <ul>
+                        <li>Joining our Discord is mandatory for comms and intel—highly encouraged to hop in whenever you’re online in-game to stay in the loop and chat with the crew!</li>
+                    </ul>
+                </li>
+                <li><strong>Having Fun Is The Most Important Part</strong>
+                    <ul>
+                        <li>Remember, EVE's all about the thrills—PvP brawls, ISK hauls, or chilling on comms. If it's not fun, let's chat and make it right!</li>
+                    </ul>
+                </li>
+            </ul>
+            <img src="images/rules_eve.jpg" alt="EVE Online fleet command interface">
+
+            <h2>Intel to Join</h2>
+            <p>Stay one step ahead of gate camps with our intel network! Jump into "Cepheus. Intel" for live updates on reds prowling our Sov—think "hostiles on scan, dock up!" Alliance channels give coalition-wide intel, while tools like Near2 or RIFT Intel Fusion map out gate traps and wormhole exits. It’s all about that edge to evade ganks or plan kills. Need access? Hit up "Cepheus. Public"—our vets are pumped to hook you up!</p>
+            <img src="images/intel_eve.jpg" alt="EVE Online intel map with gate connections">
+
+            <h2>Websites to Join</h2>
+            <p>Get wired into Cepheus with these handy sites! Start with SeAT for SRP claims, skill plans, and SIG/Squad management—link your API key for fleet doctrine access. Join our Discord (grab the link in "Cepheus. Public") for voice ops and chill chats. Scout our action on Dotlan or zKillboard, and dive into our custom wiki for fits and doctrines. It’s a breeze to set up, and we’re here to help you get online fast!</p>
+            <img src="images/websites_eve.jpg" alt="EVE Online API interface screenshot">
+
+            <h2>How to Move to Here</h2>
+            <p>Time to relocate to our null-sec haven! Ditching hi-sec is a thrill—pack your hauler alt or lean on our JF (Jump Freighter) logistics. Travel with a blue fleet or Thera wormholes (check Dotlan for routes), and steer clear of low-sec gates sans scout. Cyno in with caps if you can, but watch for hot drops. Pro tip: roll an interceptor for bubble immunity and d-scan gates. Once here, set home in our citadel and grab a doctrine ship. Stuck? Ping "Cepheus. Public" for an escort—we’ve got your back!</p>
+            <img src="images/move_eve.jpg" alt="EVE Online jump freighter in action">
+
+            <h2>ISK Earning</h2>
+            <p>Let’s stack that wallet, pilot! Cepheus offers a smorgasbord of ISK-making gigs in null-sec, with payouts from 50-200m/hour depending on your fit. Here’s the lineup:</p>
+            <ul>
+                <li><strong>Ratting:</strong> Blast NPCs in anomalies or belts with a VNI or Ishtar—bounties can hit 100m/hour with escalations.</li>
+                <li><strong>Mining:</strong> Pilot a Procurer or Hulk to mine ore or moon goo—Rorqual boosts push yields sky-high!</li>
+                <li><strong>Exploration:</strong> Scan relics and data sites with a cloaky Astero—score 100m+/hour from gas or sleeper loot.</li>
+                <li><strong>Salvaging:</strong> Trail fleets or ratters with a Noctis for modules and salvage—quick ISK for newbros.</li>
+                <li><strong>ESS Robbing:</strong> Snag bounty payouts from enemy ESS with a fast frigate—high risk, high reward up to 200m+.</li>
+                <li><strong>Planetary Interactions (PI):</strong> Set up planets for P4 goods—passive 50m/month per character.</li>
+                <li><strong>Manufacturing:</strong> Build T2 mods or caps in our complexes—use buyback minerals for profit.</li>
+                <li><strong>Wormhole Space:</strong> Day-trip WHs for sleeper sites or gas—200m/hour with good intel.</li>
+                <li><strong>Supplying the Local Market:</strong> Flip contracts or export loot to Jita—steady ISK from fleet fits.</li>
+                <li><strong>Loot from PvP:</strong> Salvage wrecks post-brawl for T2 salvage—SRP covers losses, so every kill’s a payday!</li>
+            </ul>
+            <img src="images/isk_eve.jpg" alt="EVE Online wallet interface with ISK">
+        </div>
+    </div>
+</body>
+</html>
