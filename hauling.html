@@ -212,13 +212,13 @@
     <form>
         <div class="autocomplete-container">
             <label for="start">Start Location (System Name):</label>
-            <input type="text" id="start" placeholder="e.g., Jita" autocomplete="off">
+            <input type="text" id="start" placeholder="e.g., Tanoo" autocomplete="off">
             <div id="start-autocomplete" class="autocomplete-dropdown"></div>
         </div>
       
         <div class="autocomplete-container">
             <label for="end">Destination Location (System Name):</label>
-            <input type="text" id="end" placeholder="e.g., 1DQ1-A" autocomplete="off">
+            <input type="text" id="end" placeholder="e.g., Lashesih" autocomplete="off">
             <div id="end-autocomplete" class="autocomplete-dropdown"></div>
         </div>
       
@@ -239,8 +239,8 @@
       
         <h3>How to Use the Site:</h3>
         <ul>
-            <li>Enter the starting solar system (e.g., "Jita"). As you type, select from the dropdown of matching system names.</li>
-            <li>Enter the destination solar system (e.g., "1DQ1-A"). Use the dropdown to ensure exact spelling.</li>
+            <li>Enter the starting solar system (e.g., "Tanoo"). As you type, select from the dropdown of matching system names.</li>
+            <li>Enter the destination solar system (e.g., "Lashesih"). Use the dropdown to ensure exact spelling.</li>
             <li>Input the total volume of your shipment in cubic meters (m³).</li>
             <li>Input the collateral value, which is the estimated ISK value of the items being hauled.</li>
             <li>Click "Calculate Fee" to get an estimate based on volume, 1% of the value, and the number of jumps.</li>
@@ -8802,22 +8802,14 @@
                     throw new Error('Please fill in all fields with valid, non-negative values.');
                 }
                
-                // Try local mapping first, then fall back to API
-                let startID = systemIDs[startName];
-                let endID = systemIDs[endName];
+                // Use local system IDs
+                const startID = systemIDs[startName];
+                const endID = systemIDs[endName];
                
-                console.log("Initial IDs:", { startID, endID });
+                console.log("System IDs:", { startID, endID });
 
-                if (!startID) {
-                    console.log(`Fetching system ID for ${startName}...`);
-                    startID = await retryFetch(() => getSystemID(startName));
-                    console.log(`Fetched startID: ${startID}`);
-                }
-               
-                if (!endID) {
-                    console.log(`Fetching system ID for ${endName}...`);
-                    endID = await retryFetch(() => getSystemID(endName));
-                    console.log(`Fetched endID: ${endID}`);
+                if (!startID || !endID) {
+                    throw new Error(`Invalid system name(s): "${startName}" and/or "${endName}". Please select from the autocomplete list.`);
                 }
                
                 let jumps = null;
@@ -8826,10 +8818,9 @@
                     console.log(`Calculating route from ${startID} to ${endID}...`);
                     jumps = await retryFetch(() => getJumps(startID, endID));
                     console.log(`Fetched jumps: ${jumps}`);
-                    if (jumps === null) {
-                        throw new Error('No route found between the systems.');
+                    if (jumps === null || jumps < 0) {
+                        throw new Error('No valid route found between the systems.');
                     }
-                    // Fee calculation: 1,000 ISK per m³, 1% of collateral, 50,000 ISK per jump
                     fee = (volume * 1000) + (0.01 * collateral) + (jumps * 50000);
                     resultDiv.innerHTML = `
                         <p>Estimated Fee: ${fee.toLocaleString()} ISK</p>
@@ -8839,26 +8830,22 @@
                         <p>Jump Fee: ${(jumps * 50000).toLocaleString()} ISK</p>
                     `;
                     console.log("Result set:", resultDiv.innerHTML);
-                    resultDiv.style.display = 'block'; // Ensure visibility
-                } catch (error) {
-                    // Fallback: Calculate fee without jumps if route fails
-                    console.warn('Route calculation failed, using fallback fee without jumps:', error.message);
+                } catch (routeError) {
+                    console.warn('Route calculation failed:', routeError.message);
                     fee = (volume * 1000) + (0.01 * collateral);
                     resultDiv.innerHTML = `
                         <p>Estimated Fee (No Jump Data): ${fee.toLocaleString()} ISK</p>
-                        <p><strong>Warning:</strong> Jump data unavailable due to ESI API issue. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
+                        <p><strong>Warning:</strong> Jump data unavailable. Fee excludes jump costs (normally 50,000 ISK per jump). Contact us in-game for a precise quote.</p>
                         <p>Volume Fee: ${(volume * 1000).toLocaleString()} ISK</p>
                         <p>Value Fee (1%): ${(0.01 * collateral).toLocaleString()} ISK</p>
                     `;
                     console.log("Fallback result set:", resultDiv.innerHTML);
-                    resultDiv.style.display = 'block'; // Ensure visibility
-                    errorDiv.style.display = 'block';
-                    errorDiv.innerHTML = 'Unable to calculate jumps due to ESI API error. Fee is an estimate without jump costs. Check <a href="https://status.esi.evetech.net">ESI API status</a>.';
                 }
+                resultDiv.style.display = 'block'; // Ensure visibility
             } catch (error) {
-                console.error('Error:', error.message);
+                console.error('Calculation error:', error.message);
                 errorDiv.style.display = 'block';
-                errorDiv.innerHTML = error.message;
+                errorDiv.innerHTML = error.message || 'An unexpected error occurred. Please try again.';
             } finally {
                 calculateBtn.disabled = false;
                 calculateBtn.textContent = 'Calculate Fee';
@@ -8878,40 +8865,6 @@
             }
         }
        
-        async function getSystemID(name) {
-            try {
-                const response = await fetch(`https://esi.evetech.net/latest/universe/ids/?datasource=tranquility`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Accept-Language': 'en'
-                    },
-                    body: JSON.stringify([name])
-                });
-                if (!response.ok) {
-                    let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
-                    if (response.status === 404) {
-                        errorMsg = `System "${name}" not found in ESI API. Try a supported system or contact us in-game.`;
-                    } else if (response.status === 429) {
-                        errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
-                    } else if ([502, 503, 520].includes(response.status)) {
-                        errorMsg = `ESI API server error (${response.status}). Please try again later.`;
-                    }
-                    try {
-                        const data = await response.json();
-                        if (data.error) errorMsg += ` (${data.error})`;
-                    } catch (e) {}
-                    throw new Error(errorMsg);
-                }
-                const data = await response.json();
-                return data.solar_systems && data.solar_systems.length > 0 ? data.solar_systems[0].id : null;
-            } catch (error) {
-                console.error('Error fetching system ID:', error);
-                throw error;
-            }
-        }
-       
         async function getJumps(startID, endID) {
             try {
                 const response = await fetch(`https://esi.evetech.net/route/${startID}/${endID}/?datasource=tranquility&flag=shortest`, {
@@ -8923,11 +8876,11 @@
                 if (!response.ok) {
                     let errorMsg = `ESI API error: ${response.status} ${response.statusText}`;
                     if (response.status === 404) {
-                        errorMsg = 'Route not found between the specified systems. Please verify system names or check ESI API status.';
+                        errorMsg = 'Route not found between the specified systems.';
                     } else if (response.status === 429) {
-                        errorMsg = 'ESI API rate limit exceeded. Please wait a moment and try again.';
+                        errorMsg = 'ESI API rate limit exceeded. Please wait and try again.';
                     } else if ([502, 503, 520].includes(response.status)) {
-                        errorMsg = `ESI API server error (${response.status}). Please try again later.`;
+                        errorMsg = `ESI API server error (${response.status}).`;
                     }
                     try {
                         const data = await response.json();
