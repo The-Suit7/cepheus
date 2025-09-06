@@ -64,6 +64,10 @@
             margin-top: 20px;
             font-style: italic;
         }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +90,7 @@
     <button onclick="calculateReprocessing()">Calculate</button>
 
     <div id="loading" class="loading" style="display: none;">Loading data, please wait...</div>
+    <div id="error" class="error" style="display: none;"></div>
 
     <table id="results" style="display: none;">
         <thead>
@@ -112,6 +117,7 @@
 
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
 
             const lines = itemsText.split('\n');
             const items = lines.map(line => {
@@ -134,7 +140,9 @@
                 try {
                     // Get typeID
                     const typeID = await getTypeID(item.name);
-                    if (!typeID) continue;
+                    if (!typeID) {
+                        throw new Error(`TypeID not found for ${item.name}`);
+                    }
 
                     // Get volume
                     const volume = await getVolume(typeID) * item.quantity;
@@ -142,7 +150,7 @@
                     // Get market value (Jita buy max)
                     const marketValue = await getMarketValue(typeID) * item.quantity;
 
-                    // Get reprocess materials
+                    // Get reprocess materials using CORS proxy
                     const reprocessMaterials = await getReprocessMaterials(typeID, yield);
 
                     // Calculate reprocess value
@@ -172,6 +180,8 @@
                     tableBody.appendChild(row);
                 } catch (error) {
                     console.error(`Error processing ${item.name}:`, error);
+                    document.getElementById('error').innerHTML = `Error processing ${item.name}: ${error.message}`;
+                    document.getElementById('error').style.display = 'block';
                 }
             }
 
@@ -180,32 +190,60 @@
         }
 
         async function getTypeID(name) {
-            const response = await fetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([name])
-            });
-            const data = await response.json();
-            return data.inventory_types ? data.inventory_types[0].id : null;
+            try {
+                const response = await fetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify([name])
+                });
+                if (!response.ok) throw new Error(`ESI API error: ${response.status}`);
+                const data = await response.json();
+                return data.inventory_types ? data.inventory_types[0].id : null;
+            } catch (error) {
+                console.error('TypeID fetch error:', error);
+                return null;
+            }
         }
 
         async function getVolume(typeID) {
-            const response = await fetch(`https://esi.evetech.net/latest/universe/types/${typeID}/?datasource=tranquility`);
-            const data = await response.json();
-            return data.volume;
+            try {
+                const response = await fetch(`https://esi.evetech.net/latest/universe/types/${typeID}/?datasource=tranquility`);
+                if (!response.ok) throw new Error(`ESI API error: ${response.status}`);
+                const data = await response.json();
+                return data.volume || 0;
+            } catch (error) {
+                console.error('Volume fetch error:', error);
+                return 0;
+            }
         }
 
         async function getMarketValue(typeID) {
-            const response = await fetch(`https://market.fuzzwork.co.uk/aggregates/?region=10000002&types=${typeID}`);
-            const data = await response.json();
-            return parseFloat(data[typeID].buy.max);
+            try {
+                const response = await fetch(`https://market.fuzzwork.co.uk/aggregates/?region=10000002&types=${typeID}`);
+                if (!response.ok) throw new Error(`Market API error: ${response.status}`);
+                const data = await response.json();
+                return parseFloat(data[typeID]?.buy.max) || 0;
+            } catch (error) {
+                console.error('Market value fetch error:', error);
+                return 0;
+            }
         }
 
         async function getReprocessMaterials(typeID, yield) {
-            const response = await fetch(`https://www.fuzzwork.co.uk/api/reprocess.php?typeid=${typeID}&reprocessing=5&reprocessingefficiency=5&station=0.5&implant=0`);
-            const data = await response.json();
-            // Adjust for yield (fuzzwork might not, so multiply quantities by yield)
-            return data.map(mat => ({ typeID: mat.typeID, quantity: mat.quantity * yield }));
+            try {
+                // Use CORS proxy to bypass same-origin policy (temporary workaround)
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const apiUrl = `https://www.fuzzwork.co.uk/api/reprocess.php?typeid=${typeID}&reprocessing=5&reprocessingefficiency=5&station=0.5&implant=0`;
+                const response = await fetch(proxyUrl + apiUrl, {
+                    headers: { 'Origin': window.location.origin } // Attempt to mimic origin
+                });
+                if (!response.ok) throw new Error(`Reprocess API error: ${response.status}`);
+                const data = await response.json();
+                return data.map(mat => ({ typeID: mat.typeID, quantity: mat.quantity * yield }));
+            } catch (error) {
+                console.error('Reprocess materials fetch error:', error);
+                return [];
+            }
         }
     </script>
 </body>
