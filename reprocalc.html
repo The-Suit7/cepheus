@@ -69,8 +69,8 @@
     <h1>EVE Value Analysis Calculator</h1>
 
     <div class="input-section">
-        <label for="items">Items to Analyze (paste data: Item Name, Market Value, Reprocess Value, Volume m³):</label>
-        <textarea id="items" placeholder="e.g., X5 Enduring Stasis Webifier ISK 10,950.00 9,169.138 5.00"></textarea>
+        <label for="items">Items to Analyze (paste data: Item Name\nISK\nMarket Value Reprocess Value Volume m³):</label>
+        <textarea id="items" placeholder="e.g., X5 Enduring Stasis Webifier\nISK\n10,950.00 9,169.138 5.00"></textarea>
     </div>
 
     <button onclick="calculateAnalysis()">Calculate</button>
@@ -106,36 +106,27 @@
 
             const lines = itemsText.split('\n');
             const items = [];
+            for (let i = 0; i < lines.length; i += 3) {
+                const nameLine = lines[i]?.trim();
+                const iskLine = lines[i + 1]?.trim();
+                const valueLine = lines[i + 2]?.trim();
 
-            for (let line of lines) {
-                line = line.trim();
-                if (!line) continue;
-
-                const parts = line.split(/\s+/);
-                if (parts.length < 4) continue;
-
-                // Extract item name (first part until numeric data)
-                let name = parts[0];
-                for (let i = 1; i < parts.length; i++) {
-                    if (!parts[i].match(/[\d,]+(\.\d+)?/)) {
-                        name += ' ' + parts[i];
-                    } else {
-                        break;
-                    }
-                }
-                name = name.trim();
-
-                // Extract numeric values, removing commas
-                const marketValue = parseFloat(parts.find(p => p.match(/[\d,]+(\.\d+)?/) && p !== parts[parts.length - 2] && p !== parts[parts.length - 1]).replace(/,/g, ''));
-                const reprocessValue = parseFloat(parts[parts.length - 2].replace(/,/g, ''));
-                const volume = parseFloat(parts[parts.length - 1].replace(/,/g, ''));
-
-                if (isNaN(marketValue) || isNaN(reprocessValue) || isNaN(volume)) {
-                    console.warn(`Invalid data for ${name}: ${line}`);
+                if (!nameLine || iskLine !== "ISK" || !valueLine) {
+                    console.warn(`Invalid block at line ${i}: ${nameLine || iskLine || valueLine}`);
                     continue;
                 }
 
-                items.push({ name, marketValue, reprocessValue, volume });
+                const [marketValueStr, reprocessValueStr, volumeStr] = valueLine.split(/\s+/);
+                const marketValue = parseFloat(marketValueStr.replace(/,/g, ''));
+                const reprocessValue = parseFloat(reprocessValueStr.replace(/,/g, ''));
+                const volume = parseFloat(volumeStr.replace(/,/g, ''));
+
+                if (isNaN(marketValue) || isNaN(reprocessValue) || isNaN(volume)) {
+                    console.warn(`Invalid numeric data for ${nameLine}: ${valueLine}`);
+                    continue;
+                }
+
+                items.push({ name: nameLine, marketValue, reprocessValue, volume });
             }
 
             const tableBody = document.getElementById('results').querySelector('tbody');
