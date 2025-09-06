@@ -150,8 +150,22 @@
                     // Get market value (Jita buy max)
                     const marketValue = await getMarketValue(typeID) * item.quantity;
 
-                    // Get reprocess materials using CORS proxy
-                    const reprocessMaterials = await getReprocessMaterials(typeID, yield);
+                    // Get reprocess materials using CORS proxy with fallback
+                    let reprocessMaterials = [];
+                    try {
+                        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                        const apiUrl = `https://www.fuzzwork.co.uk/api/reprocess.php?typeid=${typeID}&reprocessing=5&reprocessingefficiency=5&station=0.5&implant=0`;
+                        const response = await fetch(proxyUrl + apiUrl, {
+                            headers: { 'Origin': window.location.origin }
+                        });
+                        if (!response.ok) throw new Error(`Reprocess API error: ${response.status}`);
+                        const data = await response.json();
+                        reprocessMaterials = data.map(mat => ({ typeID: mat.typeID, quantity: mat.quantity * yield }));
+                    } catch (reprocessError) {
+                        console.error('Reprocess materials fetch error:', reprocessError);
+                        document.getElementById('error').innerHTML = `Reprocess data unavailable for ${item.name} due to API error (${reprocessError.message}). Using fallback value of 0 ISK.`;
+                        document.getElementById('error').style.display = 'block';
+                    }
 
                     // Calculate reprocess value
                     let reprocessValue = 0;
@@ -226,23 +240,6 @@
             } catch (error) {
                 console.error('Market value fetch error:', error);
                 return 0;
-            }
-        }
-
-        async function getReprocessMaterials(typeID, yield) {
-            try {
-                // Use CORS proxy to bypass same-origin policy (temporary workaround)
-                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-                const apiUrl = `https://www.fuzzwork.co.uk/api/reprocess.php?typeid=${typeID}&reprocessing=5&reprocessingefficiency=5&station=0.5&implant=0`;
-                const response = await fetch(proxyUrl + apiUrl, {
-                    headers: { 'Origin': window.location.origin } // Attempt to mimic origin
-                });
-                if (!response.ok) throw new Error(`Reprocess API error: ${response.status}`);
-                const data = await response.json();
-                return data.map(mat => ({ typeID: mat.typeID, quantity: mat.quantity * yield }));
-            } catch (error) {
-                console.error('Reprocess materials fetch error:', error);
-                return [];
             }
         }
     </script>
