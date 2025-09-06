@@ -160,10 +160,10 @@
             for (const item of items) {
                 try {
                     // Percent difference: (reprocess - market) / market * 100
-                    const percentDiff = item.marketValue > 0 ? ((item.reprocessValue - item.marketValue) / item.marketValue) * 100 : 0;
+                    const percentDiff = item.marketValue > 0 ? Math.round(((item.reprocessValue - item.marketValue) / item.marketValue) * 100) : 0;
 
                     // Reprocess value per m³
-                    const valuePerM3 = item.volume > 0 ? item.reprocessValue / item.volume : 0;
+                    const valuePerM3 = item.volume > 0 ? Math.round(item.reprocessValue / item.volume) : 0;
 
                     // Add row
                     const row = document.createElement('tr');
@@ -172,7 +172,7 @@
                         <td>${item.marketValue.toLocaleString()}</td>
                         <td>${item.reprocessValue.toLocaleString()}</td>
                         <td>${item.volume.toLocaleString()}</td>
-                        <td>${percentDiff.toFixed(2)}%</td>
+                        <td>${percentDiff}%</td>
                         <td>${valuePerM3.toLocaleString()}</td>
                     `;
                     tableBody.appendChild(row);
