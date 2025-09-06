@@ -63,11 +63,6 @@
             color: red;
             margin-top: 10px;
         }
-        .debug {
-            color: #666;
-            margin-top: 10px;
-            font-size: 0.9rem;
-        }
     </style>
 </head>
 <body>
@@ -82,7 +77,6 @@
 
     <div id="loading" class="loading" style="display: none;">Analyzing data, please wait...</div>
     <div id="error" class="error" style="display: none;"></div>
-    <div id="debug" class="debug" style="display: none;"></div>
 
     <table id="results" style="display: none;">
         <thead>
@@ -109,20 +103,14 @@
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
             document.getElementById('error').style.display = 'none';
-            document.getElementById('debug').style.display = 'none';
 
             const lines = itemsText.split('\n');
             const items = [];
             let currentItem = null;
-            let debugInfo = [];
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                debugInfo.push(`Line ${i}: "${line}"`);
-                if (!line) {
-                    debugInfo.push(`Skipping empty line at ${i}`);
-                    continue;
-                }
+                if (!line) continue;
 
                 if (!currentItem && line.includes("ISK")) {
                     // Single-line format: Item Name ISK MarketValue ReprocessValue Volume
@@ -131,8 +119,8 @@
                     let values = [];
                     for (let part of parts) {
                         if (part === "ISK") {
-                            name = parts.slice(0, parts.indexOf("ISK")).join(" ").trim();
-                            values = parts.slice(parts.indexOf("ISK") + 1).map(v => v.trim());
+                            name = parts.slice(0, parts.indexOf("ISK")).join(" ");
+                            values = parts.slice(parts.indexOf("ISK") + 1);
                             break;
                         }
                     }
@@ -142,41 +130,28 @@
                         const volume = parseFloat(values[2].replace(/,/g, ''));
                         if (!isNaN(marketValue) && !isNaN(reprocessValue) && !isNaN(volume)) {
                             items.push({ name, marketValue, reprocessValue, volume });
-                            debugInfo.push(`Added single-line item: ${name}, MV: ${marketValue}, RV: ${reprocessValue}, Vol: ${volume}`);
                         } else {
-                            debugInfo.push(`Invalid data in single-line format: ${line}`);
+                            console.warn(`Invalid data in single-line format: ${line}`);
                         }
                     }
                 } else if (!currentItem) {
                     // Start of multi-line block
                     currentItem = { name: line };
-                    debugInfo.push(`Starting multi-line block for ${line}`);
                 } else if (line === "ISK") {
-                    debugInfo.push(`Found ISK marker for ${currentItem.name}`);
+                    // Middle of block, do nothing
                 } else if (currentItem) {
                     // Third line with values
-                    const [marketValueStr, reprocessValueStr, volumeStr] = line.split(/\s+/).map(v => v.trim());
+                    const [marketValueStr, reprocessValueStr, volumeStr] = line.split(/\s+/);
                     currentItem.marketValue = parseFloat(marketValueStr.replace(/,/g, ''));
                     currentItem.reprocessValue = parseFloat(reprocessValueStr.replace(/,/g, ''));
                     currentItem.volume = parseFloat(volumeStr.replace(/,/g, ''));
                     if (!isNaN(currentItem.marketValue) && !isNaN(currentItem.reprocessValue) && !isNaN(currentItem.volume)) {
                         items.push(currentItem);
-                        debugInfo.push(`Added multi-line item: ${currentItem.name}, MV: ${currentItem.marketValue}, RV: ${currentItem.reprocessValue}, Vol: ${currentItem.volume}`);
                     } else {
-                        debugInfo.push(`Invalid numeric data for ${currentItem.name}: ${line}`);
+                        console.warn(`Invalid numeric data for ${currentItem.name}: ${line}`);
                     }
                     currentItem = null;
                 }
-            }
-
-            document.getElementById('debug').innerHTML = debugInfo.join('<br>');
-            document.getElementById('debug').style.display = 'block';
-
-            if (items.length === 0) {
-                document.getElementById('error').innerHTML = 'No valid items parsed from the input.';
-                document.getElementById('error').style.display = 'block';
-                document.getElementById('loading').style.display = 'none';
-                return;
             }
 
             const tableBody = document.getElementById('results').querySelector('tbody');
