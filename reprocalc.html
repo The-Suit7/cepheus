@@ -189,7 +189,7 @@
                     row.innerHTML = `
                         <td>${item.name}</td>
                         <td>${item.marketValue.toLocaleString()}</td>
-                        <td>${item.reprocessValue.toLocaleString()}</td>
+                        <td>${Math.round(item.reprocessValue).toLocaleString()}</td>
                         <td>${item.volume.toLocaleString()}</td>
                         <td class="${percentClass}">${percentDiff}%</td>
                         <td class="${valueClass}">${valuePerM3.toLocaleString()}</td>
