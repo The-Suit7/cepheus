@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EVE Reprocessing Calculator</title>
+    <title>EVE Value Analysis Calculator</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,11 +29,6 @@
             margin-bottom: 10px;
             padding: 10px;
             box-sizing: border-box;
-        }
-        input[type="number"] {
-            width: 100px;
-            margin-right: 10px;
-            padding: 5px;
         }
         button {
             padding: 10px 20px;
@@ -71,47 +66,37 @@
     </style>
 </head>
 <body>
-    <h1>EVE Reprocessing Calculator</h1>
+    <h1>EVE Value Analysis Calculator</h1>
 
     <div class="input-section">
-        <label for="items">Items to Process (paste from EVE):</label>
-        <textarea id="items" placeholder="Item Name&#9;Quantity"></textarea>
+        <label for="items">Items to Analyze (paste data: Item Name, Market Value, Reprocess Value, Volume m³):</label>
+        <textarea id="items" placeholder="e.g., X5 Enduring Stasis Webifier ISK 10,950.00 9,169.138 5.00"></textarea>
     </div>
 
-    <div class="input-section">
-        <label>Skills and Settings:</label>
-        <input type="number" id="reprocessing" value="5" min="0" max="5"> Reprocessing Skill<br>
-        <input type="number" id="efficiency" value="5" min="0" max="5"> Reprocessing Efficiency Skill<br>
-        <input type="number" id="oreSkill" value="5" min="0" max="5"> Ore Specific Skill<br>
-        <input type="number" id="implant" value="0" min="0" max="4"> Implant (%)<br>
-        <input type="number" id="stationEff" value="0.5" step="0.01" min="0" max="1"> Station Efficiency (0.5 for NPC, up to 0.52+ with rigs)
-    </div>
+    <button onclick="calculateAnalysis()">Calculate</button>
 
-    <button onclick="calculateReprocessing()">Calculate</button>
-
-    <div id="loading" class="loading" style="display: none;">Loading data, please wait...</div>
+    <div id="loading" class="loading" style="display: none;">Analyzing data, please wait...</div>
     <div id="error" class="error" style="display: none;"></div>
 
     <table id="results" style="display: none;">
         <thead>
             <tr>
                 <th>Item</th>
-                <th>Quantity</th>
-                <th>Volume (m3)</th>
                 <th>Market Value (ISK)</th>
                 <th>Reprocess Value (ISK)</th>
+                <th>Volume (m³)</th>
                 <th>Percent Difference (%)</th>
-                <th>Reprocess Value per m3 (ISK)</th>
+                <th>Reprocess Value per m³ (ISK)</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
     <script>
-        async function calculateReprocessing() {
+        function calculateAnalysis() {
             const itemsText = document.getElementById('items').value.trim();
             if (!itemsText) {
-                alert('Please paste items to process.');
+                alert('Please paste items to analyze.');
                 return;
             }
 
@@ -120,74 +105,57 @@
             document.getElementById('error').style.display = 'none';
 
             const lines = itemsText.split('\n');
-            const items = lines.map(line => {
-                const [name, qty] = line.split('\t');
-                return { name: name.trim(), quantity: parseInt(qty.trim() || 1) };
-            }).filter(item => item.name);
+            const items = [];
 
-            const reprocessingSkill = parseInt(document.getElementById('reprocessing').value);
-            const efficiencySkill = parseInt(document.getElementById('efficiency').value);
-            const oreSkill = parseInt(document.getElementById('oreSkill').value);
-            const implant = parseFloat(document.getElementById('implant').value) / 100;
-            const stationEff = parseFloat(document.getElementById('stationEff').value);
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
 
-            const yield = stationEff * (1 + (reprocessingSkill * 0.03)) * (1 + (efficiencySkill * 0.02)) * (1 + (oreSkill * 0.02)) * (1 + implant);
+                const parts = line.split(/\s+/);
+                if (parts.length < 4) continue;
+
+                // Extract item name (first part until numeric data)
+                let name = parts[0];
+                for (let i = 1; i < parts.length; i++) {
+                    if (!parts[i].match(/[\d,]+(\.\d+)?/)) {
+                        name += ' ' + parts[i];
+                    } else {
+                        break;
+                    }
+                }
+                name = name.trim();
+
+                // Extract numeric values, removing commas
+                const marketValue = parseFloat(parts.find(p => p.match(/[\d,]+(\.\d+)?/) && p !== parts[parts.length - 2] && p !== parts[parts.length - 1]).replace(/,/g, ''));
+                const reprocessValue = parseFloat(parts[parts.length - 2].replace(/,/g, ''));
+                const volume = parseFloat(parts[parts.length - 1].replace(/,/g, ''));
+
+                if (isNaN(marketValue) || isNaN(reprocessValue) || isNaN(volume)) {
+                    console.warn(`Invalid data for ${name}: ${line}`);
+                    continue;
+                }
+
+                items.push({ name, marketValue, reprocessValue, volume });
+            }
 
             const tableBody = document.getElementById('results').querySelector('tbody');
             tableBody.innerHTML = '';
 
             for (const item of items) {
                 try {
-                    // Get typeID
-                    const typeID = await getTypeID(item.name);
-                    if (!typeID) {
-                        throw new Error(`TypeID not found for ${item.name}`);
-                    }
-
-                    // Get volume
-                    const volume = await getVolume(typeID) * item.quantity;
-
-                    // Get market value (Jita buy max)
-                    const marketValue = await getMarketValue(typeID) * item.quantity;
-
-                    // Get reprocess materials using CORS proxy with fallback
-                    let reprocessMaterials = [];
-                    try {
-                        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-                        const apiUrl = `https://www.fuzzwork.co.uk/api/reprocess.php?typeid=${typeID}&reprocessing=5&reprocessingefficiency=5&station=0.5&implant=0`;
-                        const response = await fetch(proxyUrl + apiUrl, {
-                            headers: { 'Origin': window.location.origin }
-                        });
-                        if (!response.ok) throw new Error(`Reprocess API error: ${response.status}`);
-                        const data = await response.json();
-                        reprocessMaterials = data.map(mat => ({ typeID: mat.typeID, quantity: mat.quantity * yield }));
-                    } catch (reprocessError) {
-                        console.error('Reprocess materials fetch error:', reprocessError);
-                        document.getElementById('error').innerHTML = `Reprocess data unavailable for ${item.name} due to API error (${reprocessError.message}). Using fallback value of 0 ISK.`;
-                        document.getElementById('error').style.display = 'block';
-                    }
-
-                    // Calculate reprocess value
-                    let reprocessValue = 0;
-                    for (const mat of reprocessMaterials) {
-                        const matValue = await getMarketValue(mat.typeID) * mat.quantity;
-                        reprocessValue += matValue;
-                    }
-
                     // Percent difference: (reprocess - market) / market * 100
-                    const percentDiff = marketValue > 0 ? ((reprocessValue - marketValue) / marketValue) * 100 : 0;
+                    const percentDiff = item.marketValue > 0 ? ((item.reprocessValue - item.marketValue) / item.marketValue) * 100 : 0;
 
-                    // Reprocess value per m3
-                    const valuePerM3 = volume > 0 ? reprocessValue / volume : 0;
+                    // Reprocess value per m³
+                    const valuePerM3 = item.volume > 0 ? item.reprocessValue / item.volume : 0;
 
                     // Add row
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${item.name}</td>
-                        <td>${item.quantity}</td>
-                        <td>${volume.toLocaleString()}</td>
-                        <td>${marketValue.toLocaleString()}</td>
-                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td>${item.marketValue.toLocaleString()}</td>
+                        <td>${item.reprocessValue.toLocaleString()}</td>
+                        <td>${item.volume.toLocaleString()}</td>
                         <td>${percentDiff.toFixed(2)}%</td>
                         <td>${valuePerM3.toLocaleString()}</td>
                     `;
@@ -201,46 +169,6 @@
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('results').style.display = 'table';
-        }
-
-        async function getTypeID(name) {
-            try {
-                const response = await fetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify([name])
-                });
-                if (!response.ok) throw new Error(`ESI API error: ${response.status}`);
-                const data = await response.json();
-                return data.inventory_types ? data.inventory_types[0].id : null;
-            } catch (error) {
-                console.error('TypeID fetch error:', error);
-                return null;
-            }
-        }
-
-        async function getVolume(typeID) {
-            try {
-                const response = await fetch(`https://esi.evetech.net/latest/universe/types/${typeID}/?datasource=tranquility`);
-                if (!response.ok) throw new Error(`ESI API error: ${response.status}`);
-                const data = await response.json();
-                return data.volume || 0;
-            } catch (error) {
-                console.error('Volume fetch error:', error);
-                return 0;
-            }
-        }
-
-        async function getMarketValue(typeID) {
-            try {
-                const response = await fetch(`https://market.fuzzwork.co.uk/aggregates/?region=10000002&types=${typeID}`);
-                if (!response.ok) throw new Error(`Market API error: ${response.status}`);
-                const data = await response.json();
-                return parseFloat(data[typeID]?.buy.max) || 0;
-            } catch (error) {
-                console.error('Market value fetch error:', error);
-                return 0;
-            }
         }
     </script>
 </body>
