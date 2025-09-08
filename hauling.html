@@ -8825,7 +8825,7 @@
                     console.log("Result set:", resultDiv.innerHTML);
                 } catch (routeError) {
                     console.warn('Route calculation failed:', routeError.message);
-                    fee = (volume * 1000) + (0.01 * collateral);
+                    fee = (volume * 1250) + (0.01 * collateral);
                     resultDiv.innerHTML = `<p>Contract Reward: ${fee.toLocaleString()} ISK</p>`;
                     console.log("Fallback result set:", resultDiv.innerHTML);
                 }
