@@ -12,20 +12,21 @@
         .btn-secondary { background-color: #30363d; border-color: #30363d; }
         .btn-secondary:hover { background-color: #21262d; }
         textarea { background-color: #0d1117; color: #c9d1d9; border: 1px solid #30363d; }
+        .instructions { color: #ffffff; } /* High-contrast white for readability */
         #output { margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container mt-4">
         <h1 class="text-white">Moon Scan Value Calculator</h1>
-        <p class="text-muted">Paste moon scan data below (multi-moon format supported). Click Calculate to process yields and fetch live Fuzzwork prices (Jita min sell). Sort/filter by Athanor or Metenox ISK/h or 30-day.</p>
-        <textarea id="input" rows="10" class="form-control" placeholder="e.g., BY-MSY II - Moon 1 Sylvite 0.27336663 45491 ... Zeolites 0.526633382 45490 ..."></textarea>
+        <p class="instructions">Paste moon scan data below (e.g., "SYSTEM - Moon 1 Ore % TypeID ..."). Click Calculate to process yields with live Fuzzwork prices (Jita min sell). Sort by highest Athanor or Metenox ISK/h or 30-day. Yields based on 20,000 m³/h pull rate, 90.6% reprocessing.</p>
+        <textarea id="input" rows="10" class="form-control" placeholder="e.g., G-YZUX IX - Moon 21 Zeolites 0.2521 45490 ... Sylvite 0.3615 45491 ... Coesite 0.1864 45493 ..."></textarea>
         <button class="btn btn-secondary mt-2" onclick="calculate()"><i class="bi bi-calculator"></i> Calculate</button>
         <div id="output"></div>
     </div>
 
     <script>
-        // Ore type definitions (from Cerlestes)
+        // Ore type definitions (Cerlestes)
         const oreTypes = {
             45490: {name: 'Zeolites', goo: 'Atmospheric Gases', gooAmt: 6.5, pyr: 800, mex: 40, type: 'R4'},
             45491: {name: 'Sylvite', goo: 'Evaporite Deposits', gooAmt: 6.5, pyr: 400, mex: 40, type: 'R4'},
@@ -41,7 +42,7 @@
             45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 1, goo2: 'Morphite', goo2Amt: 0.1, pyr: 40, mex: 4, type: 'R64'}
         };
 
-        // Fallback prices (recent Fuzzwork, October 9, 2025)
+        // Fallback prices (October 9, 2025)
         let prices = {
             'Pyerite': 32.08, 'Mexallon': 61.3, 'Hydrocarbons': 626.9, 'Atmospheric Gases': 365.0,
             'Evaporite Deposits': 391.8, 'Silicates': 432.5, 'Titanium': 1001.0, 'Cadmium': 744.9,
@@ -49,7 +50,7 @@
             'Technetium': 3795.0, 'Neodymium': 14170.0, 'Dysprosium': 67040.0, 'Morphite': 25000.0
         };
 
-        // Fetch live prices from Fuzzwork API
+        // Fetch live prices
         async function fetchPrices() {
             const typeIds = '35,36,16633,16634,16635,16636,16638,16639,16640,16641,16642,16643,16646,16648,16650,11396';
             const url = `https://market.fuzzwork.co.uk/aggregates/?station=60003760&types=${typeIds}`;
@@ -73,7 +74,6 @@
                 prices['Neodymium'] = parseFloat(data['16648']?.sell?.min) || prices['Neodymium'];
                 prices['Dysprosium'] = parseFloat(data['16650']?.sell?.min) || prices['Dysprosium'];
                 prices['Morphite'] = parseFloat(data['11396']?.sell?.min) || prices['Morphite'];
-                console.log('Live prices fetched:', prices);
             } catch (e) {
                 console.error('Fallback to default prices:', e);
                 document.getElementById('output').innerHTML += '<div class="alert alert-warning">Using fallback prices (API fetch failed).</div>';
@@ -93,8 +93,8 @@
             let metenoxYields = {};
             let athanorIsk = 0;
             let metenoxIsk = 0;
-            const totalUnits = 40000; // 20,000 m³/h at 0.5 m³/unit
-            const reprocessYield = 0.906; // 90.6%
+            const totalUnits = 40000; // 20,000 m³/h
+            const reprocessYield = 0.906;
             const metenoxFactor = 0.4;
 
             Object.entries(data).forEach(([typeID, {product, quantity}]) => {
@@ -180,7 +180,7 @@
         function renderTable(results) {
             let html = `
                 <div class="mb-3">
-                    <label class="form-label">Sort By:</label>
+                    <label class="form-label text-white">Sort By:</label>
                     <select class="form-select w-auto d-inline-block" id="sortSelect" onchange="sortTable()">
                         <option value="athanorIsk-desc">Athanor ISK/h (Highest)</option>
                         <option value="athanor30d-desc">Athanor 30d (Highest)</option>
@@ -220,7 +220,7 @@
             });
             html += '</tbody></table></div>';
             document.getElementById('output').innerHTML = html;
-            sortTable(); // Initial sort
+            sortTable();
         }
 
         // Sort table
