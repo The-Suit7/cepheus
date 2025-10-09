@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moon Scan Value Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; }
+        .table-dark { --bs-table-bg: #21262d; --bs-table-color: #c9d1d9; }
+        .btn-secondary { background-color: #30363d; border-color: #30363d; }
+        .btn-secondary:hover { background-color: #21262d; }
+        textarea { background-color: #0d1117; color: #c9d1d9; border: 1px solid #30363d; }
+        #output { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-white">Moon Scan Value Calculator</h1>
+        <p class="text-muted">Paste moon scan data below (multi-moon format supported). Click Calculate to process yields and fetch live Fuzzwork prices (Jita min sell). Sort/filter by Athanor or Metenox ISK/h or 30-day.</p>
+        <textarea id="input" rows="10" class="form-control" placeholder="e.g., BY-MSY II - Moon 1 Sylvite 0.27336663 45491 ... Zeolites 0.526633382 45490 ..."></textarea>
+        <button class="btn btn-secondary mt-2" onclick="calculate()"><i class="bi bi-calculator"></i> Calculate</button>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Ore type definitions (from Cerlestes)
+        const oreTypes = {
+            45490: {name: 'Zeolites', goo: 'Atmospheric Gases', gooAmt: 6.5, pyr: 800, mex: 40, type: 'R4'},
+            45491: {name: 'Sylvite', goo: 'Evaporite Deposits', gooAmt: 6.5, pyr: 400, mex: 40, type: 'R4'},
+            45492: {name: 'Bitumens', goo: 'Hydrocarbons', gooAmt: 6.5, pyr: 800, mex: 40, type: 'R4'},
+            45493: {name: 'Coesite', goo: 'Silicates', gooAmt: 6.5, pyr: 300, mex: 40, type: 'R4'},
+            45494: {name: 'Cobaltite', goo1: 'Platinum', goo1Amt: 2, goo2: 'Cobalt', goo2Amt: 1, pyr: 40, mex: 4, type: 'R8'},
+            45496: {name: 'Titanite', goo1: 'Titanium', goo1Amt: 2, goo2: 'Chromium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
+            45498: {name: 'Otavite', goo1: 'Cadmium', goo1Amt: 2, goo2: 'Chromium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
+            45499: {name: 'Sperrylite', goo1: 'Platinum', goo1Amt: 2, goo2: 'Cadmium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
+            45500: {name: 'Vanadinite', goo1: 'Vanadium', goo1Amt: 2, goo2: 'Technetium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
+            45501: {name: 'Chromite', goo1: 'Chromium', goo1Amt: 2, goo2: 'Cadmium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
+            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 1, goo2: 'Morphite', goo2Amt: 0.1, pyr: 40, mex: 4, type: 'R32'},
+            45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 1, goo2: 'Morphite', goo2Amt: 0.1, pyr: 40, mex: 4, type: 'R64'}
+        };
+
+        // Fallback prices (recent Fuzzwork, October 9, 2025)
+        let prices = {
+            'Pyerite': 32.08, 'Mexallon': 61.3, 'Hydrocarbons': 626.9, 'Atmospheric Gases': 365.0,
+            'Evaporite Deposits': 391.8, 'Silicates': 432.5, 'Titanium': 1001.0, 'Cadmium': 744.9,
+            'Cobalt': 890.8, 'Chromium': 7630.0, 'Vanadium': 2147.0, 'Platinum': 6565.0,
+            'Technetium': 3795.0, 'Neodymium': 14170.0, 'Dysprosium': 67040.0, 'Morphite': 25000.0
+        };
+
+        // Fetch live prices from Fuzzwork API
+        async function fetchPrices() {
+            const typeIds = '35,36,16633,16634,16635,16636,16638,16639,16640,16641,16642,16643,16646,16648,16650,11396';
+            const url = `https://market.fuzzwork.co.uk/aggregates/?station=60003760&types=${typeIds}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API fetch failed');
+                const data = await response.json();
+                prices['Pyerite'] = parseFloat(data['35']?.sell?.min) || prices['Pyerite'];
+                prices['Mexallon'] = parseFloat(data['36']?.sell?.min) || prices['Mexallon'];
+                prices['Hydrocarbons'] = parseFloat(data['16633']?.sell?.min) || prices['Hydrocarbons'];
+                prices['Atmospheric Gases'] = parseFloat(data['16634']?.sell?.min) || prices['Atmospheric Gases'];
+                prices['Evaporite Deposits'] = parseFloat(data['16635']?.sell?.min) || prices['Evaporite Deposits'];
+                prices['Silicates'] = parseFloat(data['16636']?.sell?.min) || prices['Silicates'];
+                prices['Titanium'] = parseFloat(data['16638']?.sell?.min) || prices['Titanium'];
+                prices['Cadmium'] = parseFloat(data['16639']?.sell?.min) || prices['Cadmium'];
+                prices['Cobalt'] = parseFloat(data['16640']?.sell?.min) || prices['Cobalt'];
+                prices['Chromium'] = parseFloat(data['16641']?.sell?.min) || prices['Chromium'];
+                prices['Vanadium'] = parseFloat(data['16642']?.sell?.min) || prices['Vanadium'];
+                prices['Platinum'] = parseFloat(data['16643']?.sell?.min) || prices['Platinum'];
+                prices['Technetium'] = parseFloat(data['16646']?.sell?.min) || prices['Technetium'];
+                prices['Neodymium'] = parseFloat(data['16648']?.sell?.min) || prices['Neodymium'];
+                prices['Dysprosium'] = parseFloat(data['16650']?.sell?.min) || prices['Dysprosium'];
+                prices['Morphite'] = parseFloat(data['11396']?.sell?.min) || prices['Morphite'];
+                console.log('Live prices fetched:', prices);
+            } catch (e) {
+                console.error('Fallback to default prices:', e);
+                document.getElementById('output').innerHTML += '<div class="alert alert-warning">Using fallback prices (API fetch failed).</div>';
+            }
+        }
+
+        // Format numbers
+        function formatNumber(num, isISK = false) {
+            if (isISK) return Math.round(num).toLocaleString();
+            return num >= 1000 ? Math.round(num / 1000) + 'k' : Math.round(num);
+        }
+
+        // Parse input and calculate for one moon
+        function calculateMoon(moonName, data) {
+            let composition = '';
+            let athanorYields = {};
+            let metenoxYields = {};
+            let athanorIsk = 0;
+            let metenoxIsk = 0;
+            const totalUnits = 40000; // 20,000 m³/h at 0.5 m³/unit
+            const reprocessYield = 0.906; // 90.6%
+            const metenoxFactor = 0.4;
+
+            Object.entries(data).forEach(([typeID, {product, quantity}]) => {
+                const oreInfo = oreTypes[typeID];
+                if (!oreInfo) return;
+                composition += `${oreInfo.name} ${(quantity * 100).toFixed(2)}%, `;
+                const oreUnits = totalUnits * quantity;
+                if (oreInfo.goo) {
+                    const gooUnits = (oreUnits * oreInfo.gooAmt / 100) * reprocessYield;
+                    athanorYields[oreInfo.goo] = (athanorYields[oreInfo.goo] || 0) + gooUnits;
+                    metenoxYields[oreInfo.goo] = gooUnits * metenoxFactor;
+                    athanorIsk += gooUnits * prices[oreInfo.goo];
+                    metenoxIsk += metenoxYields[oreInfo.goo] * prices[oreInfo.goo];
+                }
+                if (oreInfo.goo1) {
+                    const goo1Units = (oreUnits * oreInfo.goo1Amt / 100) * reprocessYield;
+                    athanorYields[oreInfo.goo1] = (athanorYields[oreInfo.goo1] || 0) + goo1Units;
+                    metenoxYields[oreInfo.goo1] = goo1Units * metenoxFactor;
+                    athanorIsk += goo1Units * prices[oreInfo.goo1];
+                    metenoxIsk += metenoxYields[oreInfo.goo1] * prices[oreInfo.goo1];
+                }
+                if (oreInfo.goo2) {
+                    const goo2Units = (oreUnits * oreInfo.goo2Amt / 100) * reprocessYield;
+                    athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
+                    metenoxYields[oreInfo.goo2] = goo2Units * metenoxFactor;
+                    athanorIsk += goo2Units * prices[oreInfo.goo2];
+                    metenoxIsk += metenoxYields[oreInfo.goo2] * prices[oreInfo.goo2];
+                }
+                const pyrUnits = (oreUnits * oreInfo.pyr / 100) * reprocessYield;
+                const mexUnits = (oreUnits * oreInfo.mex / 100) * reprocessYield;
+                athanorYields['Pyerite'] = (athanorYields['Pyerite'] || 0) + pyrUnits;
+                athanorYields['Mexallon'] = (athanorYields['Mexallon'] || 0) + mexUnits;
+                athanorIsk += pyrUnits * prices['Pyerite'] + mexUnits * prices['Mexallon'];
+            });
+            composition = composition.slice(0, -2);
+            const athanorYieldStr = Object.entries(athanorYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
+            const metenoxYieldStr = Object.entries(metenoxYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
+            const athanor30d = athanorIsk * 720;
+            const metenox30d = metenoxIsk * 720;
+            return {
+                moonName, composition, athanorYieldStr, athanorIsk, athanor30d, metenoxYieldStr, metenoxIsk, metenox30d
+            };
+        }
+
+        // Parse input lines
+        function parseInput(input) {
+            const lines = input.trim().split('\n');
+            let currentMoon = '';
+            const moons = [];
+            let currentData = {};
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.match(/.* - Moon \d+/)) {
+                    if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
+                    currentMoon = line;
+                    currentData = {};
+                } else if (line.match(/^[A-Z].* \d+\.\d+ \d+/)) {
+                    const parts = line.split(/\s+/);
+                    const product = parts[0];
+                    const quantity = parseFloat(parts[1]);
+                    const typeID = parseInt(parts[2]);
+                    if (!isNaN(quantity) && typeID) currentData[typeID] = {product, quantity};
+                }
+            });
+            if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
+            return moons;
+        }
+
+        // Main calculate function
+        async function calculate() {
+            await fetchPrices();
+            const input = document.getElementById('input').value;
+            const moons = parseInput(input);
+            if (moons.length === 0) {
+                document.getElementById('output').innerHTML = '<div class="alert alert-danger">No valid moon data parsed.</div>';
+                return;
+            }
+            const results = moons.map(moon => calculateMoon(moon.name, moon.data));
+            renderTable(results);
+        }
+
+        // Render sortable table
+        function renderTable(results) {
+            let html = `
+                <div class="mb-3">
+                    <label class="form-label">Sort By:</label>
+                    <select class="form-select w-auto d-inline-block" id="sortSelect" onchange="sortTable()">
+                        <option value="athanorIsk-desc">Athanor ISK/h (Highest)</option>
+                        <option value="athanor30d-desc">Athanor 30d (Highest)</option>
+                        <option value="metenoxIsk-desc">Metenox ISK/h (Highest)</option>
+                        <option value="metenox30d-desc">Metenox 30d (Highest)</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Moon Name</th>
+                                <th>Composition (% Ore)</th>
+                                <th>Athanor Yields/h (Goo + Base)</th>
+                                <th>Athanor ISK/h</th>
+                                <th>Athanor Total ISK/30 days</th>
+                                <th>Metenox Yields/h (Goo)</th>
+                                <th>Metenox ISK/h</th>
+                                <th>Metenox Total ISK/30 days</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+            `;
+            results.forEach(row => {
+                html += `
+                    <tr>
+                        <td>${row.moonName}</td>
+                        <td>${row.composition}</td>
+                        <td>${row.athanorYieldStr}</td>
+                        <td>${formatNumber(row.athanorIsk, true)}</td>
+                        <td>${formatNumber(row.athanor30d, true)}</td>
+                        <td>${row.metenoxYieldStr}</td>
+                        <td>${formatNumber(row.metenoxIsk, true)}</td>
+                        <td>${formatNumber(row.metenox30d, true)}</td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table></div>';
+            document.getElementById('output').innerHTML = html;
+            sortTable(); // Initial sort
+        }
+
+        // Sort table
+        function sortTable() {
+            const select = document.getElementById('sortSelect');
+            const sortKey = select.value;
+            const tbody = document.querySelector('#tableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const keyMap = {
+                'athanorIsk-desc': (r) => -parseFloat(r.cells[3].textContent.replace(/,/g, '')),
+                'athanor30d-desc': (r) => -parseFloat(r.cells[4].textContent.replace(/,/g, '')),
+                'metenoxIsk-desc': (r) => -parseFloat(r.cells[6].textContent.replace(/,/g, '')),
+                'metenox30d-desc': (r) => -parseFloat(r.cells[7].textContent.replace(/,/g, ''))
+            };
+            rows.sort((a, b) => keyMap[sortKey](a) - keyMap[sortKey](b));
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
