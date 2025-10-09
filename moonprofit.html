@@ -27,29 +27,38 @@
     <div id="output"></div>
 
     <script>
-        // Ore type definitions (Cerlestes, per 1,000 m³ at 100% efficiency)
+        // Ore type definitions (EVE University Wiki, per 1,000 m³ at 100% efficiency)
         const oreTypes = {
             45490: {name: 'Zeolites', goo: 'Atmospheric Gases', gooAmt: 65, pyr: 8000, mex: 400, type: 'R4'},
             45491: {name: 'Sylvite', goo: 'Evaporite Deposits', gooAmt: 65, pyr: 4000, mex: 400, type: 'R4'},
-            45492: {name: 'Bitumens', goo: 'Hydrocarbons', gooAmt: 65, pyr: 8000, mex: 400, type: 'R4'},
-            45493: {name: 'Coesite', goo: 'Silicates', gooAmt: 65, pyr: 3000, mex: 400, type: 'R4'},
-            45494: {name: 'Cobaltite', goo1: 'Platinum', goo1Amt: 20, goo2: 'Cobalt', goo2Amt: 10, pyr: 400, mex: 40, type: 'R8'},
-            45496: {name: 'Titanite', goo1: 'Titanium', goo1Amt: 20, goo2: 'Chromium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45498: {name: 'Otavite', goo1: 'Cadmium', goo1Amt: 20, goo2: 'Chromium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45499: {name: 'Sperrylite', goo1: 'Platinum', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45500: {name: 'Vanadinite', goo1: 'Vanadium', goo1Amt: 20, goo2: 'Technetium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45501: {name: 'Chromite', goo1: 'Chromium', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'},
-            45512: {name: 'Loparite', goo1: 'Promethium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'},
-            45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'}
+            45492: {name: 'Bitumens', goo: 'Hydrocarbons', gooAmt: 65, pyr: 6000, mex: 400, type: 'R4'},
+            45493: {name: 'Coesite', goo: 'Silicates', gooAmt: 65, pyr: 2000, mex: 400, type: 'R4'},
+            45494: {name: 'Cobaltite', goo: 'Cobalt', gooAmt: 40, type: 'R8'},
+            45495: {name: 'Euxenite', goo: 'Scandium', gooAmt: 40, type: 'R8'},
+            45496: {name: 'Titanite', goo: 'Titanium', gooAmt: 40, type: 'R8'},
+            45497: {name: 'Scheelite', goo: 'Tungsten', gooAmt: 40, type: 'R8'},
+            45498: {name: 'Otavite', goo: 'Cadmium', gooAmt: 40, goo2: 'Atmospheric Gases', goo2Amt: 10, type: 'R16'},
+            45499: {name: 'Sperrylite', goo: 'Platinum', gooAmt: 40, goo2: 'Evaporite Deposits', goo2Amt: 10, type: 'R16'},
+            45500: {name: 'Vanadinite', goo: 'Vanadium', gooAmt: 40, goo2: 'Silicates', goo2Amt: 10, type: 'R16'},
+            45501: {name: 'Chromite', goo: 'Chromium', gooAmt: 40, goo2: 'Hydrocarbons', goo2Amt: 10, type: 'R16'},
+            45502: {name: 'Carnotite', goo: 'Technetium', gooAmt: 50, goo2: 'Cobalt', goo2Amt: 10, goo3: 'Atmospheric Gases', goo3Amt: 15, type: 'R32'},
+            45503: {name: 'Cinnabar', goo: 'Mercury', gooAmt: 50, goo2: 'Tungsten', goo2Amt: 10, goo3: 'Evaporite Deposits', goo3Amt: 15, type: 'R32'},
+            45504: {name: 'Pollucite', goo: 'Caesium', gooAmt: 50, goo2: 'Scandium', goo2Amt: 10, goo3: 'Hydrocarbons', goo3Amt: 15, type: 'R32'},
+            45506: {name: 'Zircon', goo: 'Hafnium', gooAmt: 50, goo2: 'Titanium', goo2Amt: 10, goo3: 'Silicates', goo3Amt: 15, type: 'R32'},
+            45510: {name: 'Xenotime', goo: 'Dysprosium', gooAmt: 22, goo2: 'Vanadium', goo2Amt: 10, goo3: 'Cobalt', goo3Amt: 20, goo4: 'Atmospheric Gases', goo4Amt: 20, type: 'R64'},
+            45511: {name: 'Monazite', goo: 'Neodymium', gooAmt: 22, goo2: 'Chromium', goo2Amt: 10, goo3: 'Tungsten', goo3Amt: 20, goo4: 'Evaporite Deposits', goo4Amt: 20, type: 'R64'},
+            45512: {name: 'Loparite', goo: 'Promethium', gooAmt: 22, goo2: 'Platinum', goo2Amt: 10, goo3: 'Scandium', goo3Amt: 20, goo4: 'Hydrocarbons', goo4Amt: 20, type: 'R64'},
+            45513: {name: 'Ytterbite', goo: 'Thulium', gooAmt: 22, goo2: 'Cadmium', goo2Amt: 10, goo3: 'Titanium', goo3Amt: 20, goo4: 'Silicates', goo4Amt: 20, type: 'R64'}
         };
 
-        // Fallback prices (Verified Jita Min Sell, October 9, 2025)
+        // Fallback prices (Verified Jita Min Sell, October 9, 2025, with assumed prices for new minerals)
         let prices = {
             'Pyerite': 26.0, 'Mexallon': 54.0, 'Hydrocarbons': 555.0, 'Atmospheric Gases': 365.0,
             'Evaporite Deposits': 370.0, 'Silicates': 420.0, 'Titanium': 1002.0, 'Cadmium': 6562.0,
             'Cobalt': 850.0, 'Chromium': 7627.0, 'Vanadium': 2112.0, 'Platinum': 7145.0,
-            'Technetium': 12480.0, 'Neodymium': 14140.0, 'Promethium': 61000.0, 'Dysprosium': 67000.0, 'Morphite': 20200.0
+            'Technetium': 12480.0, 'Neodymium': 14140.0, 'Promethium': 61000.0, 'Dysprosium': 67000.0,
+            'Morphite': 20200.0, 'Scandium': 1000.0, 'Tungsten': 1200.0, 'Mercury': 10000.0,
+            'Caesium': 10000.0, 'Hafnium': 10000.0, 'Thulium': 65000.0
         };
 
         // Track if live prices are used and fetch errors
@@ -62,7 +71,9 @@
                 'Pyerite': 35, 'Mexallon': 36, 'Hydrocarbons': 16633, 'Atmospheric Gases': 16634,
                 'Evaporite Deposits': 16635, 'Silicates': 16636, 'Titanium': 16638, 'Cadmium': 16643,
                 'Cobalt': 16640, 'Chromium': 16641, 'Vanadium': 16642, 'Platinum': 16644,
-                'Technetium': 16649, 'Neodymium': 16648, 'Promethium': 16652, 'Dysprosium': 16650, 'Morphite': 11396
+                'Technetium': 16649, 'Neodymium': 16648, 'Promethium': 16652, 'Dysprosium': 16650,
+                'Morphite': 11396, 'Scandium': 16639, 'Tungsten': 16637, 'Mercury': 16646,
+                'Caesium': 16647, 'Hafnium': 16648, 'Thulium': 16653
             };
             const typeIdList = Object.values(typeIds).join(',');
             const url = `https://market.fuzzwork.co.uk/aggregates/?region=10000002&types=${typeIdList}`;
@@ -97,6 +108,12 @@
                 updatePrice('16652', 'Promethium');
                 updatePrice('16650', 'Dysprosium');
                 updatePrice('11396', 'Morphite');
+                updatePrice('16639', 'Scandium');
+                updatePrice('16637', 'Tungsten');
+                updatePrice('16646', 'Mercury');
+                updatePrice('16647', 'Caesium');
+                updatePrice('16648', 'Hafnium');
+                updatePrice('16653', 'Thulium');
                 isLivePrices = fetchErrors.length === 0;
                 console.log('Live prices fetched:', prices);
                 if (!isLivePrices) {
@@ -187,20 +204,26 @@
                     athanorYields[oreInfo.goo] = (athanorYields[oreInfo.goo] || 0) + gooUnits;
                     metenoxYields[oreInfo.goo] = (metenoxYields[oreInfo.goo] || 0) + gooUnits * metenoxFactor;
                 }
-                if (oreInfo.goo1) {
-                    const goo1Units = chunks * oreInfo.goo1Amt * reprocessYield;
-                    athanorYields[oreInfo.goo1] = (athanorYields[oreInfo.goo1] || 0) + goo1Units;
-                    metenoxYields[oreInfo.goo1] = (metenoxYields[oreInfo.goo1] || 0) + goo1Units * metenoxFactor;
-                    if (oreInfo.goo2) {
-                        const goo2Units = chunks * oreInfo.goo2Amt * reprocessYield;
-                        athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
-                        metenoxYields[oreInfo.goo2] = (metenoxYields[oreInfo.goo2] || 0) + goo2Units * metenoxFactor;
-                    }
+                if (oreInfo.goo2) {
+                    const goo2Units = chunks * oreInfo.goo2Amt * reprocessYield;
+                    athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
                 }
-                const pyrUnits = chunks * oreInfo.pyr * reprocessYield;
-                const mexUnits = chunks * oreInfo.mex * reprocessYield;
-                athanorYields['Pyerite'] = (athanorYields['Pyerite'] || 0) + pyrUnits;
-                athanorYields['Mexallon'] = (athanorYields['Mexallon'] || 0) + mexUnits;
+                if (oreInfo.goo3) {
+                    const goo3Units = chunks * oreInfo.goo3Amt * reprocessYield;
+                    athanorYields[oreInfo.goo3] = (athanorYields[oreInfo.goo3] || 0) + goo3Units;
+                }
+                if (oreInfo.goo4) {
+                    const goo4Units = chunks * oreInfo.goo4Amt * reprocessYield;
+                    athanorYields[oreInfo.goo4] = (athanorYields[oreInfo.goo4] || 0) + goo4Units;
+                }
+                if (oreInfo.pyr) {
+                    const pyrUnits = chunks * oreInfo.pyr * reprocessYield;
+                    athanorYields['Pyerite'] = (athanorYields['Pyerite'] || 0) + pyrUnits;
+                }
+                if (oreInfo.mex) {
+                    const mexUnits = chunks * oreInfo.mex * reprocessYield;
+                    athanorYields['Mexallon'] = (athanorYields['Mexallon'] || 0) + mexUnits;
+                }
             });
 
             // Calculate ISK values from consolidated yields
