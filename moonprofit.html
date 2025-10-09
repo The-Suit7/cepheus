@@ -103,7 +103,7 @@
                     console.error('Some price fetches failed:', fetchErrors);
                 }
             } catch (e) {
-                console.error('Fallback to default prices:', e);
+                console.error('Fallback to verified prices:', e);
                 fetchErrors.push(`Global fetch error: ${e.message}`);
                 isLivePrices = false;
             }
@@ -124,25 +124,21 @@
 
         // Parse input lines with whitespace handling
         function parseInput(input) {
-            const lines = input.split('\n').map(line => line.trim()).filter(line => line); // Trim and skip blank lines
+            const lines = input.split('\n').map(line => line.trim()).filter(line => line);
             let currentMoon = '';
             const moons = [];
             let currentData = {};
             lines.forEach(line => {
-                // Skip header
                 if (line.startsWith('Moon Moon Product')) {
                     console.log('Skipped header:', line);
                     return;
                 }
-                // Match moon name (e.g., "CZ6U-1 I - Moon 17")
                 if (line.match(/^\s*[A-Z0-9]+-[A-Z0-9]+.* - Moon \d+/)) {
                     if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
                     currentMoon = line;
                     currentData = {};
                     console.log('Parsed moon:', currentMoon);
-                } 
-                // Match ore data (e.g., "Cobaltite 0.309334159 45494 30003134 40199000 40199017")
-                else if (line.match(/^\s*[A-Z][a-zA-Z]+\s+\d+\.\d+\s+\d+\s+\d+\s+\d+\s+\d+/)) {
+                } else if (line.match(/^\s*[A-Z][a-zA-Z]+\s+\d+\.\d+\s+\d+\s+\d+\s+\d+\s+\d+/)) {
                     const parts = line.split(/\s+/);
                     const product = parts[0];
                     const quantity = parseFloat(parts[1]);
@@ -176,6 +172,7 @@
             const reprocessYield = 0.906;
             const metenoxFactor = 0.4; // 40% efficiency = 12,000 m³/h = 12 chunks
 
+            // Consolidate yields first
             Object.entries(data).forEach(([typeID, {product, quantity}]) => {
                 const oreInfo = oreTypes[typeID];
                 if (!oreInfo) {
@@ -188,41 +185,36 @@
                 if (oreInfo.goo) {
                     const gooUnits = chunks * oreInfo.gooAmt * reprocessYield;
                     athanorYields[oreInfo.goo] = (athanorYields[oreInfo.goo] || 0) + gooUnits;
-                    metenoxYields[oreInfo.goo] = gooUnits * metenoxFactor;
-                    const price = prices[oreInfo.goo] || 0;
-                    athanorIsk += gooUnits * price;
-                    metenoxIsk += metenoxYields[oreInfo.goo] * price;
-                    athanorUnitIsk.push(`${oreInfo.goo} ${formatNumber(gooUnits * price, true)} (${formatNumber(price, true)} ISK/unit)`);
-                    metenoxUnitIsk.push(`${oreInfo.goo} ${formatNumber(metenoxYields[oreInfo.goo] * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+                    metenoxYields[oreInfo.goo] = (metenoxYields[oreInfo.goo] || 0) + gooUnits * metenoxFactor;
                 }
                 if (oreInfo.goo1) {
                     const goo1Units = chunks * oreInfo.goo1Amt * reprocessYield;
                     athanorYields[oreInfo.goo1] = (athanorYields[oreInfo.goo1] || 0) + goo1Units;
-                    metenoxYields[oreInfo.goo1] = goo1Units * metenoxFactor;
-                    const price = prices[oreInfo.goo1] || 0;
-                    athanorIsk += goo1Units * price;
-                    metenoxIsk += metenoxYields[oreInfo.goo1] * price;
-                    athanorUnitIsk.push(`${oreInfo.goo1} ${formatNumber(goo1Units * price, true)} (${formatNumber(price, true)} ISK/unit)`);
-                    metenoxUnitIsk.push(`${oreInfo.goo1} ${formatNumber(metenoxYields[oreInfo.goo1] * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+                    metenoxYields[oreInfo.goo1] = (metenoxYields[oreInfo.goo1] || 0) + goo1Units * metenoxFactor;
                     if (oreInfo.goo2) {
                         const goo2Units = chunks * oreInfo.goo2Amt * reprocessYield;
                         athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
-                        metenoxYields[oreInfo.goo2] = goo2Units * metenoxFactor;
-                        const price2 = prices[oreInfo.goo2] || 0;
-                        athanorIsk += goo2Units * price2;
-                        metenoxIsk += metenoxYields[oreInfo.goo2] * price2;
-                        athanorUnitIsk.push(`${oreInfo.goo2} ${formatNumber(goo2Units * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
-                        metenoxUnitIsk.push(`${oreInfo.goo2} ${formatNumber(metenoxYields[oreInfo.goo2] * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
+                        metenoxYields[oreInfo.goo2] = (metenoxYields[oreInfo.goo2] || 0) + goo2Units * metenoxFactor;
                     }
                 }
                 const pyrUnits = chunks * oreInfo.pyr * reprocessYield;
                 const mexUnits = chunks * oreInfo.mex * reprocessYield;
                 athanorYields['Pyerite'] = (athanorYields['Pyerite'] || 0) + pyrUnits;
                 athanorYields['Mexallon'] = (athanorYields['Mexallon'] || 0) + mexUnits;
-                athanorIsk += pyrUnits * (prices['Pyerite'] || 0) + mexUnits * (prices['Mexallon'] || 0);
-                athanorUnitIsk.push(`Pyerite ${formatNumber(pyrUnits * prices['Pyerite'], true)} (${formatNumber(prices['Pyerite'], true)} ISK/unit)`);
-                athanorUnitIsk.push(`Mexallon ${formatNumber(mexUnits * prices['Mexallon'], true)} (${formatNumber(prices['Mexallon'], true)} ISK/unit)`);
             });
+
+            // Calculate ISK values from consolidated yields
+            Object.entries(athanorYields).forEach(([material, units]) => {
+                const price = prices[material] || 0;
+                athanorIsk += units * price;
+                athanorUnitIsk.push(`${material} ${formatNumber(units * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+            });
+            Object.entries(metenoxYields).forEach(([material, units]) => {
+                const price = prices[material] || 0;
+                metenoxIsk += units * price;
+                metenoxUnitIsk.push(`${material} ${formatNumber(units * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+            });
+
             if (!composition) {
                 console.log('No valid composition for moon:', moonName);
                 return null;
