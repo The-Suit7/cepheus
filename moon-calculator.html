@@ -4,42 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Moon Scan Value Calculator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background-color: #0d1117; color: #c9d1d9; }
-        .table-dark { --bs-table-bg: #21262d; --bs-table-color: #c9d1d9; }
-        .btn-secondary { background-color: #30363d; border-color: #30363d; }
-        .btn-secondary:hover { background-color: #21262d; }
-        textarea { background-color: #0d1117; color: #c9d1d9; border: 1px solid #30363d; }
-        .instructions { color: #ffffff; } /* High-contrast white for readability */
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+        .bold { font-weight: bold; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
+        button { padding: 10px 20px; cursor: pointer; }
         #output { margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="text-white">Moon Scan Value Calculator</h1>
-        <p class="instructions">Paste moon scan data below (e.g., "SYSTEM - Moon 1 Ore % TypeID ..."). Click Calculate to process yields with live Fuzzwork prices (Jita min sell). Sort by highest Athanor or Metenox ISK/h or 30-day. Yields based on 20,000 m³/h pull rate, 90.6% reprocessing.</p>
-        <textarea id="input" rows="10" class="form-control" placeholder="e.g., G-YZUX IX - Moon 21 Zeolites 0.2521 45490 ... Sylvite 0.3615 45491 ... Coesite 0.1864 45493 ..."></textarea>
-        <button class="btn btn-secondary mt-2" onclick="calculate()"><i class="bi bi-calculator"></i> Calculate</button>
-        <div id="output"></div>
-    </div>
+    <h1>Moon Scan Value Calculator</h1>
+    <p>Paste moon scan data in the textarea below and click Calculate to generate tables with composition, hourly yields, per-unit ISK, ISK per hour, and total ISK for 30 days for Athanor and Metenox. Handles leading/trailing whitespace and blank lines. Prices are fetched from Fuzzwork market API (Jita min sell). If fetch fails, defaults are used. Sort button sorts by highest Athanor ISK/h.</p>
+    <textarea id="input" placeholder="e.g., CZ6U-1 I - Moon 17\nCobaltite 0.309334159 45494 30003134 40199000 40199017 ..."></textarea><br>
+    <button onclick="calculate()">Calculate</button>
+    <div id="output"></div>
 
     <script>
-        // Ore type definitions (Cerlestes)
+        // Ore type definitions (Cerlestes, per 1,000 m³ at 100% efficiency)
         const oreTypes = {
-            45490: {name: 'Zeolites', goo: 'Atmospheric Gases', gooAmt: 6.5, pyr: 800, mex: 40, type: 'R4'},
-            45491: {name: 'Sylvite', goo: 'Evaporite Deposits', gooAmt: 6.5, pyr: 400, mex: 40, type: 'R4'},
-            45492: {name: 'Bitumens', goo: 'Hydrocarbons', gooAmt: 6.5, pyr: 800, mex: 40, type: 'R4'},
-            45493: {name: 'Coesite', goo: 'Silicates', gooAmt: 6.5, pyr: 300, mex: 40, type: 'R4'},
-            45494: {name: 'Cobaltite', goo1: 'Platinum', goo1Amt: 2, goo2: 'Cobalt', goo2Amt: 1, pyr: 40, mex: 4, type: 'R8'},
-            45496: {name: 'Titanite', goo1: 'Titanium', goo1Amt: 2, goo2: 'Chromium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
-            45498: {name: 'Otavite', goo1: 'Cadmium', goo1Amt: 2, goo2: 'Chromium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
-            45499: {name: 'Sperrylite', goo1: 'Platinum', goo1Amt: 2, goo2: 'Cadmium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
-            45500: {name: 'Vanadinite', goo1: 'Vanadium', goo1Amt: 2, goo2: 'Technetium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
-            45501: {name: 'Chromite', goo1: 'Chromium', goo1Amt: 2, goo2: 'Cadmium', goo2Amt: 1, pyr: 40, mex: 4, type: 'R16'},
-            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 1, goo2: 'Morphite', goo2Amt: 0.1, pyr: 40, mex: 4, type: 'R32'},
-            45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 1, goo2: 'Morphite', goo2Amt: 0.1, pyr: 40, mex: 4, type: 'R64'}
+            45490: {name: 'Zeolites', goo: 'Atmospheric Gases', gooAmt: 65, pyr: 8000, mex: 400, type: 'R4'},
+            45491: {name: 'Sylvite', goo: 'Evaporite Deposits', gooAmt: 65, pyr: 4000, mex: 400, type: 'R4'},
+            45492: {name: 'Bitumens', goo: 'Hydrocarbons', gooAmt: 65, pyr: 8000, mex: 400, type: 'R4'},
+            45493: {name: 'Coesite', goo: 'Silicates', gooAmt: 65, pyr: 3000, mex: 400, type: 'R4'},
+            45494: {name: 'Cobaltite', goo1: 'Platinum', goo1Amt: 20, goo2: 'Cobalt', goo2Amt: 10, pyr: 400, mex: 40, type: 'R8'},
+            45496: {name: 'Titanite', goo1: 'Titanium', goo1Amt: 20, goo2: 'Chromium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
+            45498: {name: 'Otavite', goo1: 'Cadmium', goo1Amt: 20, goo2: 'Chromium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
+            45499: {name: 'Sperrylite', goo1: 'Platinum', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
+            45500: {name: 'Vanadinite', goo1: 'Vanadium', goo1Amt: 20, goo2: 'Technetium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
+            45501: {name: 'Chromite', goo1: 'Chromium', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
+            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R32'},
+            45512: {name: 'Loparite', goo1: 'Promethium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'},
+            45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'}
         };
 
         // Fallback prices (October 9, 2025)
@@ -47,198 +44,223 @@
             'Pyerite': 32.08, 'Mexallon': 61.3, 'Hydrocarbons': 626.9, 'Atmospheric Gases': 365.0,
             'Evaporite Deposits': 391.8, 'Silicates': 432.5, 'Titanium': 1001.0, 'Cadmium': 744.9,
             'Cobalt': 890.8, 'Chromium': 7630.0, 'Vanadium': 2147.0, 'Platinum': 6565.0,
-            'Technetium': 3795.0, 'Neodymium': 14170.0, 'Dysprosium': 67040.0, 'Morphite': 25000.0
+            'Technetium': 3795.0, 'Neodymium': 14170.0, 'Promethium': 14170.0, 'Dysprosium': 67040.0, 'Morphite': 25000.0
         };
 
         // Fetch live prices
         async function fetchPrices() {
-            const typeIds = '35,36,16633,16634,16635,16636,16638,16639,16640,16641,16642,16643,16646,16648,16650,11396';
+            const typeIds = '35,36,16633,16634,16635,16636,16638,16639,16640,16641,16642,16643,16646,16648,16649,16650,11396';
             const url = `https://market.fuzzwork.co.uk/aggregates/?station=60003760&types=${typeIds}`;
             try {
                 const response = await fetch(url);
-                if (!response.ok) throw new Error('API fetch failed');
+                if (!response.ok) throw new Error('API fetch failed: ' + response.status);
                 const data = await response.json();
-                prices['Pyerite'] = parseFloat(data['35']?.sell?.min) || prices['Pyerite'];
-                prices['Mexallon'] = parseFloat(data['36']?.sell?.min) || prices['Mexallon'];
-                prices['Hydrocarbons'] = parseFloat(data['16633']?.sell?.min) || prices['Hydrocarbons'];
-                prices['Atmospheric Gases'] = parseFloat(data['16634']?.sell?.min) || prices['Atmospheric Gases'];
-                prices['Evaporite Deposits'] = parseFloat(data['16635']?.sell?.min) || prices['Evaporite Deposits'];
-                prices['Silicates'] = parseFloat(data['16636']?.sell?.min) || prices['Silicates'];
-                prices['Titanium'] = parseFloat(data['16638']?.sell?.min) || prices['Titanium'];
-                prices['Cadmium'] = parseFloat(data['16639']?.sell?.min) || prices['Cadmium'];
-                prices['Cobalt'] = parseFloat(data['16640']?.sell?.min) || prices['Cobalt'];
-                prices['Chromium'] = parseFloat(data['16641']?.sell?.min) || prices['Chromium'];
-                prices['Vanadium'] = parseFloat(data['16642']?.sell?.min) || prices['Vanadium'];
-                prices['Platinum'] = parseFloat(data['16643']?.sell?.min) || prices['Platinum'];
-                prices['Technetium'] = parseFloat(data['16646']?.sell?.min) || prices['Technetium'];
-                prices['Neodymium'] = parseFloat(data['16648']?.sell?.min) || prices['Neodymium'];
-                prices['Dysprosium'] = parseFloat(data['16650']?.sell?.min) || prices['Dysprosium'];
-                prices['Morphite'] = parseFloat(data['11396']?.sell?.min) || prices['Morphite'];
+                const updatePrice = (id, key) => {
+                    const price = parseFloat(data[id]?.sell?.min);
+                    if (!isNaN(price) && price > 0) {
+                        prices[key] = price;
+                    } else {
+                        console.warn(`Invalid price for ${key} (type ${id}): ${data[id]?.sell?.min}`);
+                    }
+                };
+                updatePrice('35', 'Pyerite');
+                updatePrice('36', 'Mexallon');
+                updatePrice('16633', 'Hydrocarbons');
+                updatePrice('16634', 'Atmospheric Gases');
+                updatePrice('16635', 'Evaporite Deposits');
+                updatePrice('16636', 'Silicates');
+                updatePrice('16638', 'Titanium');
+                updatePrice('16639', 'Cadmium');
+                updatePrice('16640', 'Cobalt');
+                updatePrice('16641', 'Chromium');
+                updatePrice('16642', 'Vanadium');
+                updatePrice('16643', 'Platinum');
+                updatePrice('16646', 'Technetium');
+                updatePrice('16648', 'Neodymium');
+                updatePrice('16649', 'Promethium');
+                updatePrice('16650', 'Dysprosium');
+                updatePrice('11396', 'Morphite');
+                console.log('Live prices fetched:', prices);
             } catch (e) {
                 console.error('Fallback to default prices:', e);
-                document.getElementById('output').innerHTML += '<div class="alert alert-warning">Using fallback prices (API fetch failed).</div>';
+                document.getElementById('output').innerHTML += '<div style="color: red;">Using fallback prices (API fetch failed: ' + e.message + ').</div>';
             }
         }
 
         // Format numbers
         function formatNumber(num, isISK = false) {
-            if (isISK) return Math.round(num).toLocaleString();
+            if (isNaN(num) || num === null || num === undefined) return '0';
+            if (isISK) return Math.round(num).toLocaleString('en-US');
             return num >= 1000 ? Math.round(num / 1000) + 'k' : Math.round(num);
         }
 
-        // Parse input and calculate for one moon
-        function calculateMoon(moonName, data) {
+        function isR8OrHigher(id) {
+            return id >= 45494;
+        }
+
+        let currentTableRows = [];
+
+        // Parse input lines with whitespace handling
+        function parseInput(input) {
+            const lines = input.split('\n').map(line => line.trim()).filter(line => line); // Trim and skip blank lines
+            let currentMoon = '';
+            const moons = [];
+            let currentData = {};
+            lines.forEach(line => {
+                // Skip header
+                if (line.startsWith('Moon Moon Product')) {
+                    console.log('Skipped header:', line);
+                    return;
+                }
+                // Match moon name (e.g., "CZ6U-1 I - Moon 17")
+                if (line.match(/^\s*[A-Z0-9]+-[A-Z0-9]+.* - Moon \d+/)) {
+                    if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
+                    currentMoon = line;
+                    currentData = {};
+                    console.log('Parsed moon:', currentMoon);
+                } 
+                // Match ore data (e.g., "Cobaltite 0.309334159 45494 30003134 40199000 40199017")
+                else if (line.match(/^\s*[A-Z][a-zA-Z]+\s+\d+\.\d+\s+\d+\s+\d+\s+\d+\s+\d+/)) {
+                    const parts = line.split(/\s+/);
+                    const product = parts[0];
+                    const quantity = parseFloat(parts[1]);
+                    const typeID = parseInt(parts[2]);
+                    if (!isNaN(quantity) && typeID && oreTypes[typeID]) {
+                        currentData[typeID] = {product, quantity};
+                        console.log(`Parsed ore: ${product}, ${quantity}, ${typeID}`);
+                    } else {
+                        console.log(`Invalid ore line: ${line}`);
+                    }
+                } else {
+                    console.log(`Skipped line: ${line}`);
+                }
+            });
+            if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
+            console.log('Parsed moons:', moons);
+            return moons;
+        }
+
+        // Calculate for one moon
+        async function calculateMoon(moonName, data) {
             let composition = '';
             let athanorYields = {};
             let metenoxYields = {};
             let athanorIsk = 0;
             let metenoxIsk = 0;
-            const totalUnits = 40000; // 20,000 m³/h
+            let athanorUnitIsk = [];
+            let metenoxUnitIsk = [];
+            let isHighValue = false;
+            const totalChunks = 30; // 30,000 m³/h = 30 chunks of 1,000 m³
             const reprocessYield = 0.906;
-            const metenoxFactor = 0.4;
+            const metenoxFactor = 0.4; // 40% efficiency = 12,000 m³/h = 12 chunks
 
             Object.entries(data).forEach(([typeID, {product, quantity}]) => {
                 const oreInfo = oreTypes[typeID];
-                if (!oreInfo) return;
+                if (!oreInfo) {
+                    console.log(`Unknown ore typeID: ${typeID}`);
+                    return;
+                }
                 composition += `${oreInfo.name} ${(quantity * 100).toFixed(2)}%, `;
-                const oreUnits = totalUnits * quantity;
+                if (isR8OrHigher(typeID)) isHighValue = true;
+                const chunks = totalChunks * quantity;
                 if (oreInfo.goo) {
-                    const gooUnits = (oreUnits * oreInfo.gooAmt / 100) * reprocessYield;
+                    const gooUnits = chunks * oreInfo.gooAmt * reprocessYield;
                     athanorYields[oreInfo.goo] = (athanorYields[oreInfo.goo] || 0) + gooUnits;
                     metenoxYields[oreInfo.goo] = gooUnits * metenoxFactor;
-                    athanorIsk += gooUnits * prices[oreInfo.goo];
-                    metenoxIsk += metenoxYields[oreInfo.goo] * prices[oreInfo.goo];
+                    const price = prices[oreInfo.goo] || 0;
+                    athanorIsk += gooUnits * price;
+                    metenoxIsk += metenoxYields[oreInfo.goo] * price;
+                    athanorUnitIsk.push(`${oreInfo.goo} ${formatNumber(gooUnits * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+                    metenoxUnitIsk.push(`${oreInfo.goo} ${formatNumber(metenoxYields[oreInfo.goo] * price, true)} (${formatNumber(price, true)} ISK/unit)`);
                 }
                 if (oreInfo.goo1) {
-                    const goo1Units = (oreUnits * oreInfo.goo1Amt / 100) * reprocessYield;
+                    const goo1Units = chunks * oreInfo.goo1Amt * reprocessYield;
                     athanorYields[oreInfo.goo1] = (athanorYields[oreInfo.goo1] || 0) + goo1Units;
                     metenoxYields[oreInfo.goo1] = goo1Units * metenoxFactor;
-                    athanorIsk += goo1Units * prices[oreInfo.goo1];
-                    metenoxIsk += metenoxYields[oreInfo.goo1] * prices[oreInfo.goo1];
+                    const price = prices[oreInfo.goo1] || 0;
+                    athanorIsk += goo1Units * price;
+                    metenoxIsk += metenoxYields[oreInfo.goo1] * price;
+                    athanorUnitIsk.push(`${oreInfo.goo1} ${formatNumber(goo1Units * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+                    metenoxUnitIsk.push(`${oreInfo.goo1} ${formatNumber(metenoxYields[oreInfo.goo1] * price, true)} (${formatNumber(price, true)} ISK/unit)`);
+                    if (oreInfo.goo2) {
+                        const goo2Units = chunks * oreInfo.goo2Amt * reprocessYield;
+                        athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
+                        metenoxYields[oreInfo.goo2] = goo2Units * metenoxFactor;
+                        const price2 = prices[oreInfo.goo2] || 0;
+                        athanorIsk += goo2Units * price2;
+                        metenoxIsk += metenoxYields[oreInfo.goo2] * price2;
+                        athanorUnitIsk.push(`${oreInfo.goo2} ${formatNumber(goo2Units * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
+                        metenoxUnitIsk.push(`${oreInfo.goo2} ${formatNumber(metenoxYields[oreInfo.goo2] * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
+                    }
                 }
-                if (oreInfo.goo2) {
-                    const goo2Units = (oreUnits * oreInfo.goo2Amt / 100) * reprocessYield;
-                    athanorYields[oreInfo.goo2] = (athanorYields[oreInfo.goo2] || 0) + goo2Units;
-                    metenoxYields[oreInfo.goo2] = goo2Units * metenoxFactor;
-                    athanorIsk += goo2Units * prices[oreInfo.goo2];
-                    metenoxIsk += metenoxYields[oreInfo.goo2] * prices[oreInfo.goo2];
-                }
-                const pyrUnits = (oreUnits * oreInfo.pyr / 100) * reprocessYield;
-                const mexUnits = (oreUnits * oreInfo.mex / 100) * reprocessYield;
+                const pyrUnits = chunks * oreInfo.pyr * reprocessYield;
+                const mexUnits = chunks * oreInfo.mex * reprocessYield;
                 athanorYields['Pyerite'] = (athanorYields['Pyerite'] || 0) + pyrUnits;
                 athanorYields['Mexallon'] = (athanorYields['Mexallon'] || 0) + mexUnits;
-                athanorIsk += pyrUnits * prices['Pyerite'] + mexUnits * prices['Mexallon'];
+                athanorIsk += pyrUnits * (prices['Pyerite'] || 0) + mexUnits * (prices['Mexallon'] || 0);
+                athanorUnitIsk.push(`Pyerite ${formatNumber(pyrUnits * prices['Pyerite'], true)} (${formatNumber(prices['Pyerite'], true)} ISK/unit)`);
+                athanorUnitIsk.push(`Mexallon ${formatNumber(mexUnits * prices['Mexallon'], true)} (${formatNumber(prices['Mexallon'], true)} ISK/unit)`);
             });
+            if (!composition) {
+                console.log('No valid composition for moon:', moonName);
+                return null;
+            }
             composition = composition.slice(0, -2);
             const athanorYieldStr = Object.entries(athanorYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
             const metenoxYieldStr = Object.entries(metenoxYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
-            const athanor30d = athanorIsk * 720;
-            const metenox30d = metenoxIsk * 720;
+            const athanorUnitIskStr = athanorUnitIsk.join(', ');
+            const metenoxUnitIskStr = metenoxUnitIsk.join(', ');
+            const athanorIskStr = formatNumber(athanorIsk, true);
+            const metenoxIskStr = formatNumber(metenoxIsk, true);
+            const athanorTotal = formatNumber(athanorIsk * 720, true);
+            const metenoxTotal = formatNumber(metenoxIsk * 720, true);
+            const classStr = isHighValue ? ' class="bold"' : '';
             return {
-                moonName, composition, athanorYieldStr, athanorIsk, athanor30d, metenoxYieldStr, metenoxIsk, metenox30d
+                row: `<tr${classStr} data-isk="${athanorIsk}"><td>${moonName || 'Unknown Moon'}</td><td>${composition || 'N/A'}</td><td>${athanorYieldStr || 'N/A'}</td><td>${athanorUnitIskStr || 'N/A'}</td><td>${athanorIskStr}</td><td>${athanorTotal}</td><td>${metenoxYieldStr || 'N/A'}</td><td>${metenoxUnitIskStr || 'N/A'}</td><td>${metenoxIskStr}</td><td>${metenoxTotal}</td></tr>`,
+                athanorIsk
             };
-        }
-
-        // Parse input lines
-        function parseInput(input) {
-            const lines = input.trim().split('\n');
-            let currentMoon = '';
-            const moons = [];
-            let currentData = {};
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.match(/.* - Moon \d+/)) {
-                    if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
-                    currentMoon = line;
-                    currentData = {};
-                } else if (line.match(/^[A-Z].* \d+\.\d+ \d+/)) {
-                    const parts = line.split(/\s+/);
-                    const product = parts[0];
-                    const quantity = parseFloat(parts[1]);
-                    const typeID = parseInt(parts[2]);
-                    if (!isNaN(quantity) && typeID) currentData[typeID] = {product, quantity};
-                }
-            });
-            if (currentMoon) moons.push({name: currentMoon, data: {...currentData}});
-            return moons;
         }
 
         // Main calculate function
         async function calculate() {
             await fetchPrices();
-            const input = document.getElementById('input').value;
+            const input = document.getElementById('input').value.trim();
             const moons = parseInput(input);
             if (moons.length === 0) {
-                document.getElementById('output').innerHTML = '<div class="alert alert-danger">No valid moon data parsed.</div>';
+                document.getElementById('output').innerHTML = '<div style="color: red;">No valid moon data parsed. Ensure format matches: SYSTEM - Moon X Ore % TypeID ... or includes header. Check console for errors.</div>';
                 return;
             }
-            const results = moons.map(moon => calculateMoon(moon.name, moon.data));
-            renderTable(results);
-        }
-
-        // Render sortable table
-        function renderTable(results) {
-            let html = `
-                <div class="mb-3">
-                    <label class="form-label text-white">Sort By:</label>
-                    <select class="form-select w-auto d-inline-block" id="sortSelect" onchange="sortTable()">
-                        <option value="athanorIsk-desc">Athanor ISK/h (Highest)</option>
-                        <option value="athanor30d-desc">Athanor 30d (Highest)</option>
-                        <option value="metenoxIsk-desc">Metenox ISK/h (Highest)</option>
-                        <option value="metenox30d-desc">Metenox 30d (Highest)</option>
-                    </select>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>Moon Name</th>
-                                <th>Composition (% Ore)</th>
-                                <th>Athanor Yields/h (Goo + Base)</th>
-                                <th>Athanor ISK/h</th>
-                                <th>Athanor Total ISK/30 days</th>
-                                <th>Metenox Yields/h (Goo)</th>
-                                <th>Metenox ISK/h</th>
-                                <th>Metenox Total ISK/30 days</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-            `;
-            results.forEach(row => {
-                html += `
-                    <tr>
-                        <td>${row.moonName}</td>
-                        <td>${row.composition}</td>
-                        <td>${row.athanorYieldStr}</td>
-                        <td>${formatNumber(row.athanorIsk, true)}</td>
-                        <td>${formatNumber(row.athanor30d, true)}</td>
-                        <td>${row.metenoxYieldStr}</td>
-                        <td>${formatNumber(row.metenoxIsk, true)}</td>
-                        <td>${formatNumber(row.metenox30d, true)}</td>
-                    </tr>
-                `;
+            currentTableRows = [];
+            let output = '<h2>Moon Scan Results</h2>';
+            output += '<button onclick="sortTable()">Sort by Highest Athanor ISK/h</button>';
+            output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
+            const results = await Promise.all(moons.map(moon => calculateMoon(moon.name, moon.data)));
+            results.filter(row => row !== null).forEach(row => {
+                currentTableRows.push(row.row);
+                output += row.row;
             });
-            html += '</tbody></table></div>';
-            document.getElementById('output').innerHTML = html;
-            sortTable();
+            if (currentTableRows.length === 0) {
+                document.getElementById('output').innerHTML = '<div style="color: red;">No valid calculations produced. Check console for errors.</div>';
+                return;
+            }
+            output += '</table>';
+            document.getElementById('output').innerHTML = output;
         }
 
         // Sort table
         function sortTable() {
-            const select = document.getElementById('sortSelect');
-            const sortKey = select.value;
-            const tbody = document.querySelector('#tableBody');
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            const keyMap = {
-                'athanorIsk-desc': (r) => -parseFloat(r.cells[3].textContent.replace(/,/g, '')),
-                'athanor30d-desc': (r) => -parseFloat(r.cells[4].textContent.replace(/,/g, '')),
-                'metenoxIsk-desc': (r) => -parseFloat(r.cells[6].textContent.replace(/,/g, '')),
-                'metenox30d-desc': (r) => -parseFloat(r.cells[7].textContent.replace(/,/g, ''))
-            };
-            rows.sort((a, b) => keyMap[sortKey](a) - keyMap[sortKey](b));
-            rows.forEach(row => tbody.appendChild(row));
+            currentTableRows.sort((a, b) => {
+                const iskA = parseFloat(a.match(/data-isk="(\d+(\.\d+)?)"/)?.[1] || 0);
+                const iskB = parseFloat(b.match(/data-isk="(\d+(\.\d+)?)"/)?.[1] || 0);
+                return iskB - iskA;
+            });
+            let output = '<h2>Moon Scan Results (Sorted by Highest Athanor ISK/h)</h2>';
+            output += '<button onclick="calculate()">Recalculate</button>';
+            output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
+            currentTableRows.forEach(row => output += row);
+            output += '</table>';
+            document.getElementById('output').innerHTML = output;
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
