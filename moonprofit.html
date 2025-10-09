@@ -21,7 +21,7 @@
 </head>
 <body>
     <h1>Moon Scan Value Calculator</h1>
-    <p>Paste moon scan data in the textarea below and click Calculate to generate tables with composition, hourly yields, per-unit ISK, ISK per hour, and total ISK for 30 days for Athanor and Metenox. Handles leading/trailing whitespace and blank lines. Prices are fetched from EVE Market Browser API (Jita min sell) for refined products and displayed above the table with API fetch status. If fetch fails (e.g., CORS/NetworkError), defaults are used. Run on a local server to avoid CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>. Sort button sorts by highest Athanor ISK/h.</p>
+    <p>Paste moon scan data in the textarea below and click Calculate to generate tables with composition, hourly yields, per-unit ISK, ISK per hour, and total ISK for 30 days for Athanor and Metenox. Handles leading/trailing whitespace and blank lines. Prices are fetched from Fuzzwork API (Jita region min sell) for refined products and displayed above the table with API fetch status. If fetch fails, verified defaults (October 9, 2025) are used. Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</p>
     <textarea id="input" placeholder="e.g., CZ6U-1 I - Moon 17\nCobaltite 0.309334159 45494 ..."></textarea><br>
     <button onclick="calculate()">Calculate</button>
     <div id="output"></div>
@@ -44,52 +44,68 @@
             45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'}
         };
 
-        // Fallback prices (October 9, 2025)
+        // Fallback prices (Verified Jita Min Sell, October 9, 2025)
         let prices = {
-            'Pyerite': 32.08, 'Mexallon': 61.3, 'Hydrocarbons': 626.9, 'Atmospheric Gases': 365.0,
-            'Evaporite Deposits': 391.8, 'Silicates': 432.5, 'Titanium': 1001.0, 'Cadmium': 744.9,
-            'Cobalt': 890.8, 'Chromium': 7630.0, 'Vanadium': 2147.0, 'Platinum': 7415.0,
-            'Technetium': 3795.0, 'Neodymium': 14170.0, 'Promethium': 14170.0, 'Dysprosium': 67040.0, 'Morphite': 25000.0
+            'Pyerite': 26.0, 'Mexallon': 54.0, 'Hydrocarbons': 555.0, 'Atmospheric Gases': 365.0,
+            'Evaporite Deposits': 370.0, 'Silicates': 420.0, 'Titanium': 1002.0, 'Cadmium': 6562.0,
+            'Cobalt': 850.0, 'Chromium': 7627.0, 'Vanadium': 2112.0, 'Platinum': 7145.0,
+            'Technetium': 12480.0, 'Neodymium': 14140.0, 'Promethium': 61000.0, 'Dysprosium': 67000.0, 'Morphite': 20200.0
         };
 
         // Track if live prices are used and fetch errors
         let isLivePrices = false;
         let fetchErrors = [];
 
-        // Fetch live prices from EVE Market Browser
+        // Fetch live prices from Fuzzwork API
         async function fetchPrices() {
             const typeIds = {
                 'Pyerite': 35, 'Mexallon': 36, 'Hydrocarbons': 16633, 'Atmospheric Gases': 16634,
-                'Evaporite Deposits': 16635, 'Silicates': 16636, 'Titanium': 16638, 'Cadmium': 16639,
-                'Cobalt': 16640, 'Chromium': 16641, 'Vanadium': 16642, 'Platinum': 16643,
-                'Technetium': 16646, 'Neodymium': 16648, 'Promethium': 16649, 'Dysprosium': 16650, 'Morphite': 11396
+                'Evaporite Deposits': 16635, 'Silicates': 16636, 'Titanium': 16638, 'Cadmium': 16643,
+                'Cobalt': 16640, 'Chromium': 16641, 'Vanadium': 16642, 'Platinum': 16644,
+                'Technetium': 16649, 'Neodymium': 16648, 'Promethium': 16652, 'Dysprosium': 16650, 'Morphite': 11396
             };
+            const typeIdList = Object.values(typeIds).join(',');
+            const url = `https://market.fuzzwork.co.uk/aggregates/?region=10000002&types=${typeIdList}`;
             fetchErrors = [];
-            let allValid = true;
-            for (const [key, id] of Object.entries(typeIds)) {
-                const url = `https://evemarketbrowser.com/region/10000002/type/${id}`;
-                try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`Fetch failed for ${key}: ${response.status}`);
-                    const data = await response.json();
-                    const price = parseFloat(data.minSellPrice);
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                const data = await response.json();
+                const updatePrice = (id, key) => {
+                    const price = parseFloat(data[id]?.sell?.min);
                     if (!isNaN(price) && price > 0) {
                         prices[key] = price;
                     } else {
-                        console.warn(`Invalid price for ${key} (type ${id}): ${data.minSellPrice}`);
-                        fetchErrors.push(`Failed for ${key}: Invalid price (${data.minSellPrice})`);
-                        allValid = false;
+                        console.warn(`Invalid price for ${key} (type ${id}): ${data[id]?.sell?.min}`);
+                        fetchErrors.push(`Failed for ${key}: Invalid price (${data[id]?.sell?.min})`);
                     }
-                } catch (e) {
-                    console.warn(`Fetch failed for ${key} (type ${id}): ${e.message}`);
-                    fetchErrors.push(`Failed for ${key}: ${e.message}`);
-                    allValid = false;
+                };
+                updatePrice('35', 'Pyerite');
+                updatePrice('36', 'Mexallon');
+                updatePrice('16633', 'Hydrocarbons');
+                updatePrice('16634', 'Atmospheric Gases');
+                updatePrice('16635', 'Evaporite Deposits');
+                updatePrice('16636', 'Silicates');
+                updatePrice('16638', 'Titanium');
+                updatePrice('16643', 'Cadmium');
+                updatePrice('16640', 'Cobalt');
+                updatePrice('16641', 'Chromium');
+                updatePrice('16642', 'Vanadium');
+                updatePrice('16644', 'Platinum');
+                updatePrice('16649', 'Technetium');
+                updatePrice('16648', 'Neodymium');
+                updatePrice('16652', 'Promethium');
+                updatePrice('16650', 'Dysprosium');
+                updatePrice('11396', 'Morphite');
+                isLivePrices = fetchErrors.length === 0;
+                console.log('Live prices fetched:', prices);
+                if (!isLivePrices) {
+                    console.error('Some price fetches failed:', fetchErrors);
                 }
-            }
-            isLivePrices = allValid;
-            console.log('Live prices fetched:', prices);
-            if (!allValid) {
-                console.error('Some price fetches failed:', fetchErrors);
+            } catch (e) {
+                console.error('Fallback to default prices:', e);
+                fetchErrors.push(`Global fetch error: ${e.message}`);
+                isLivePrices = false;
             }
         }
 
@@ -196,7 +212,7 @@
                         athanorIsk += goo2Units * price2;
                         metenoxIsk += metenoxYields[oreInfo.goo2] * price2;
                         athanorUnitIsk.push(`${oreInfo.goo2} ${formatNumber(goo2Units * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
-                        metenoxUnitIsk.push(`${oreInfo.goo2} ${formatNumber(metenoxYields[oreInfo.goo2] * price, true)} (${formatNumber(price2, true)} ISK/unit)`);
+                        metenoxUnitIsk.push(`${oreInfo.goo2} ${formatNumber(metenoxYields[oreInfo.goo2] * price2, true)} (${formatNumber(price2, true)} ISK/unit)`);
                     }
                 }
                 const pyrUnits = chunks * oreInfo.pyr * reprocessYield;
@@ -238,11 +254,11 @@
             }
             currentTableRows = [];
             let output = '<h2>Moon Scan Results</h2>';
-            output += `<div class="fetch-status${isLivePrices ? '' : ' failed'}">API Fetch: ${isLivePrices ? 'Success (Live EVE Market Browser API prices used)' : `Failed (Using fallback prices from October 9, 2025${fetchErrors.length ? ': ' + fetchErrors.join('; ') : ''})`}</div>`;
+            output += `<div class="fetch-status${isLivePrices ? '' : ' failed'}">API Fetch: ${isLivePrices ? 'Success (Live Fuzzwork API prices used)' : `Failed (Using verified fallback prices from October 9, 2025${fetchErrors.length ? ': ' + fetchErrors.join('; ') : ''})`}</div>`;
             output += '<div class="price-list">Per-Unit Prices (ISK/unit):<br>' +
                 Object.entries(prices).map(([key, value]) => `${key}: ${formatNumber(value, true)}${fetchErrors.some(err => err.startsWith(`Failed for ${key}`)) ? ' (fallback)' : ''}`).join('<br>') +
                 '</div>';
-            output += '<div class="retry-note">Note: If API fetch fails due to CORS, run on a local server: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
+            output += '<div class="retry-note">Note: Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
             output += '<button onclick="sortTable()">Sort by Highest Athanor ISK/h</button>';
             output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
             const results = await Promise.all(moons.map(moon => calculateMoon(moon.name, moon.data)));
@@ -266,11 +282,11 @@
                 return iskB - iskA;
             });
             let output = '<h2>Moon Scan Results (Sorted by Highest Athanor ISK/h)</h2>';
-            output += `<div class="fetch-status${isLivePrices ? '' : ' failed'}">API Fetch: ${isLivePrices ? 'Success (Live EVE Market Browser API prices used)' : `Failed (Using fallback prices from October 9, 2025${fetchErrors.length ? ': ' + fetchErrors.join('; ') : ''})`}</div>`;
+            output += `<div class="fetch-status${isLivePrices ? '' : ' failed'}">API Fetch: ${isLivePrices ? 'Success (Live Fuzzwork API prices used)' : `Failed (Using verified fallback prices from October 9, 2025${fetchErrors.length ? ': ' + fetchErrors.join('; ') : ''})`}</div>`;
             output += '<div class="price-list">Per-Unit Prices (ISK/unit):<br>' +
                 Object.entries(prices).map(([key, value]) => `${key}: ${formatNumber(value, true)}${fetchErrors.some(err => err.startsWith(`Failed for ${key}`)) ? ' (fallback)' : ''}`).join('<br>') +
                 '</div>';
-            output += '<div class="retry-note">Note: If API fetch fails due to CORS, run on a local server: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
+            output += '<div class="retry-note">Note: Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
             output += '<button onclick="calculate()">Recalculate</button>';
             output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
             currentTableRows.forEach(row => output += row);
