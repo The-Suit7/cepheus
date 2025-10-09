@@ -21,7 +21,7 @@
 </head>
 <body>
     <h1>Moon Scan Value Calculator</h1>
-    <p>Paste moon scan data in the textarea below and click Calculate to generate tables with composition, hourly yields, per-unit ISK, ISK per hour, and total ISK for 30 days for Athanor and Metenox. Handles leading/trailing whitespace and blank lines. Prices are fetched from Fuzzwork API (Jita region min sell) for refined products and displayed above the table with API fetch status. If fetch fails, verified defaults (October 9, 2025) are used. Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</p>
+    <p>Paste moon scan data in the textarea below and click Calculate to generate tables with rarity (ore R ratings), composition, hourly yields, per-unit ISK, ISK per hour, and total ISK for 30 days for Athanor and Metenox. Handles leading/trailing whitespace and blank lines. Prices are fetched from Fuzzwork API (Jita region min sell) for refined products and displayed above the table with API fetch status. If fetch fails, verified defaults (October 9, 2025) are used. Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</p>
     <textarea id="input" placeholder="e.g., CZ6U-1 I - Moon 17\nCobaltite 0.309334159 45494 ..."></textarea><br>
     <button onclick="calculate()">Calculate</button>
     <div id="output"></div>
@@ -39,7 +39,7 @@
             45499: {name: 'Sperrylite', goo1: 'Platinum', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
             45500: {name: 'Vanadinite', goo1: 'Vanadium', goo1Amt: 20, goo2: 'Technetium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
             45501: {name: 'Chromite', goo1: 'Chromium', goo1Amt: 20, goo2: 'Cadmium', goo2Amt: 10, pyr: 400, mex: 40, type: 'R16'},
-            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R32'},
+            45511: {name: 'Monazite', goo1: 'Neodymium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'},
             45512: {name: 'Loparite', goo1: 'Promethium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'},
             45513: {name: 'Ytterbite', goo1: 'Dysprosium', goo1Amt: 10, goo2: 'Morphite', goo2Amt: 1, pyr: 400, mex: 40, type: 'R64'}
         };
@@ -120,8 +120,6 @@
             return id >= 45494;
         }
 
-        let currentTableRows = [];
-
         // Parse input lines with whitespace handling
         function parseInput(input) {
             const lines = input.split('\n').map(line => line.trim()).filter(line => line);
@@ -161,6 +159,7 @@
         // Calculate for one moon
         async function calculateMoon(moonName, data) {
             let composition = '';
+            let rarities = [];
             let athanorYields = {};
             let metenoxYields = {};
             let athanorIsk = 0;
@@ -172,7 +171,7 @@
             const reprocessYield = 0.906;
             const metenoxFactor = 0.4; // 40% efficiency = 12,000 m³/h = 12 chunks
 
-            // Consolidate yields first
+            // Consolidate yields and collect rarities
             Object.entries(data).forEach(([typeID, {product, quantity}]) => {
                 const oreInfo = oreTypes[typeID];
                 if (!oreInfo) {
@@ -180,6 +179,7 @@
                     return;
                 }
                 composition += `${oreInfo.name} ${(quantity * 100).toFixed(2)}%, `;
+                rarities.push(`${oreInfo.name} (${oreInfo.type})`);
                 if (isR8OrHigher(typeID)) isHighValue = true;
                 const chunks = totalChunks * quantity;
                 if (oreInfo.goo) {
@@ -220,6 +220,7 @@
                 return null;
             }
             composition = composition.slice(0, -2);
+            const rarityStr = rarities.join(', ');
             const athanorYieldStr = Object.entries(athanorYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
             const metenoxYieldStr = Object.entries(metenoxYields).map(([k, v]) => `${k} ${formatNumber(v)}`).join(', ');
             const athanorUnitIskStr = athanorUnitIsk.join(', ');
@@ -230,7 +231,7 @@
             const metenoxTotal = formatNumber(metenoxIsk * 720, true);
             const classStr = isHighValue ? ' class="bold"' : '';
             return {
-                row: `<tr${classStr} data-isk="${athanorIsk}"><td>${moonName || 'Unknown Moon'}</td><td>${composition || 'N/A'}</td><td>${athanorYieldStr || 'N/A'}</td><td>${athanorUnitIskStr || 'N/A'}</td><td>${athanorIskStr}</td><td>${athanorTotal}</td><td>${metenoxYieldStr || 'N/A'}</td><td>${metenoxUnitIskStr || 'N/A'}</td><td>${metenoxIskStr}</td><td>${metenoxTotal}</td></tr>`,
+                row: `<tr${classStr} data-isk="${athanorIsk}"><td>${moonName || 'Unknown Moon'}</td><td>${rarityStr || 'N/A'}</td><td>${composition || 'N/A'}</td><td>${athanorYieldStr || 'N/A'}</td><td>${athanorUnitIskStr || 'N/A'}</td><td>${athanorIskStr}</td><td>${athanorTotal}</td><td>${metenoxYieldStr || 'N/A'}</td><td>${metenoxUnitIskStr || 'N/A'}</td><td>${metenoxIskStr}</td><td>${metenoxTotal}</td></tr>`,
                 athanorIsk
             };
         }
@@ -252,7 +253,7 @@
                 '</div>';
             output += '<div class="retry-note">Note: Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
             output += '<button onclick="sortTable()">Sort by Highest Athanor ISK/h</button>';
-            output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
+            output += '<table id="resultsTable"><tr><th>Moon</th><th>Rarity</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
             const results = await Promise.all(moons.map(moon => calculateMoon(moon.name, moon.data)));
             results.filter(row => row !== null).forEach(row => {
                 currentTableRows.push(row.row);
@@ -280,7 +281,7 @@
                 '</div>';
             output += '<div class="retry-note">Note: Run on a local server to minimize CORS issues: <code>python -m http.server 8000</code> and access <code>http://localhost:8000</code>.</div>';
             output += '<button onclick="calculate()">Recalculate</button>';
-            output += '<table id="resultsTable"><tr><th>Moon</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
+            output += '<table id="resultsTable"><tr><th>Moon</th><th>Rarity</th><th>Composition (% Ore)</th><th>Athanor Yields/h (Goo + Base)</th><th>Athanor Per-Unit ISK/h</th><th>Athanor ISK/h</th><th>Athanor Total ISK/30 days</th><th>Metenox Yields/h (Goo)</th><th>Metenox Per-Unit ISK/h</th><th>Metenox ISK/h</th><th>Metenox Total ISK/30 days</th></tr>';
             currentTableRows.forEach(row => output += row);
             output += '</table>';
             document.getElementById('output').innerHTML = output;
