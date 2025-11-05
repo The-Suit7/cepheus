@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online PI Planner</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #0f0f0f; color: #e0e0e0; }
+        h1 { color: #00ff99; text-align: center; text-shadow: 0 0 5px #00ff99; }
+        .controls { background: #1a1a1a; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(0, 255, 153, 0.2); }
+        label { display: block; margin: 12px 0 6px; font-weight: bold; color: #00ff99; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2a2a2a; color: #fff; border: 1px solid #00ff99; border-radius: 6px; font-size: 16px; }
+        select:focus, input:focus { outline: none; border-color: #00cc77; box-shadow: 0 0 8px rgba(0, 255, 153, 0.5); }
+        button { background: linear-gradient(135deg, #00ff99, #00cc77); color: #000; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; transition: 0.3s; }
+        button:hover { background: linear-gradient(135deg, #00cc77, #00aa55); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 255, 153, 0.4); }
+        #results { background: #1a1a1a; padding: 20px; border-radius: 12px; min-height: 100px; box-shadow: 0 0 15px rgba(0, 255, 153, 0.2); }
+        ul { list-style: none; padding: 0; }
+        li { margin: 12px 0; padding: 12px; background: #2a2a2a; border-left: 5px solid #00ff99; border-radius: 6px; }
+        .p0 { border-left-color: #ffaa00 !important; }
+        .p1 { border-left-color: #00aaff !important; }
+        .p2 { border-left-color: #aa00ff !important; }
+        .p3 { border-left-color: #ff5500 !important; }
+        .p4 { border-left-color: #ffff00 !important; color: #000 !important; font-weight: bold; }
+        strong { color: #00ff99; }
+        .note { font-size: 0.9em; color: #aaa; margin-top: 20px; padding: 15px; background: #222; border-radius: 8px; border: 1px dashed #00ff99; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Planetary Interactions Planner</h1>
+    <div class="controls">
+        <label for="product">Select Final Product:</label>
+        <select id="product"></select>
+
+        <label for="rate">Desired Production per Hour:</label>
+        <input type="number" id="rate" value="1" step="0.1" min="0.01">
+
+        <label for="ecuYield">Avg P0 Extraction per ECU per Hour (e.g., 3000):</label>
+        <input type="number" id="ecuYield" value="3000" step="100" min="100">
+
+        <button onclick="compute()">Compute Factory & Extraction Plan</button>
+    </div>
+    <div id="results"></div>
+
+    <div class="note">
+        <strong>Notes:</strong><br>
+        - Basic (P1): 30min cycle, 3000 P0 → 20 P1 (40/hr/factory)<br>
+        - Advanced (P2): 60min cycle, 40 P1 + 40 P1 → 5 P2 (5/hr/factory)<br>
+        - Advanced (P3): 60min cycle, 10 P2 + 10 P2 (or +10) → 3 P3 (3/hr/factory)<br>
+        - High Tech (P4): 60min cycle, 6 P3 + 6 P3 (or +6/40 P1) → 1 P4 (1/hr/factory)<br>
+        - ECU yield: Adjust for planet, skills, heads.<br>
+        - Factories: Exact needed; round up in-game.<br>
+        - Reference: wiki.eveuniversity.org/Planetary_Commodities<br>
+        - Assumes 100% efficiency, no idle time.
+    </div>
+
+    <script>
+        const recipes = {
+            'Bacteria': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Microorganisms', amt: 3000}]},
+            'Biofuels': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Carbon Compounds', amt: 3000}]},
+            'Biomass': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Planktic Colonies', amt: 3000}]},
+            'Chiral Structures': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Non-CS Crystals', amt: 3000}]},
+            'Electrolytes': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Ionic Solutions', amt: 3000}]},
+            'Industrial Fibers': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Autotrophs', amt: 3000}]},
+            'Oxidizing Compound': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Reactive Gas', amt: 3000}]},
+            'Oxygen': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Noble Gas', amt: 3000}]},
+            'Plasmoids': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Suspended Plasma', amt: 3000}]},
+            'Precious Metals': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Noble Metals', amt: 3000}]},
+            'Proteins': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Complex Organisms', amt: 3000}]},
+            'Reactive Metals': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Base Metals', amt: 3000}]},
+            'Silicon': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Felsic Magma', amt: 3000}]},
+            'Toxic Metals': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Heavy Metals', amt: 3000}]},
+            'Water': { level: 1, factory: 'Basic', cycle: 30, output: 20, inputs: [{name: 'Aqueous Liquids', amt: 3000}]},
+            'Biocells': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Biofuels', amt: 40}, {name: 'Precious Metals', amt: 40}]},
+            'Construction Blocks': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Reactive Metals', amt: 40}, {name: 'Toxic Metals', amt: 40}]},
+            'Consumer Electronics': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Chiral Structures', amt: 40}, {name: 'Toxic Metals', amt: 40}]},
+            'Coolant': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Electrolytes', amt: 40}, {name: 'Water', amt: 40}]},
+            'Enriched Uranium': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Precious Metals', amt: 40}, {name: 'Toxic Metals', amt: 40}]},
+            'Fertilizer': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Bacteria', amt: 40}, {name: 'Proteins', amt: 40}]},
+            'Genetically Enhanced Livestock': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Biomass', amt: 40}, {name: 'Proteins', amt: 40}]},
+            'Livestock': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Biofuels', amt: 40}, {name: 'Proteins', amt: 40}]},
+            'Mechanical Parts': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Precious Metals', amt: 40}, {name: 'Reactive Metals', amt: 40}]},
+            'Microfiber Shielding': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Industrial Fibers', amt: 40}, {name: 'Silicon', amt: 40}]},
+            'Miniature Electronics': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Chiral Structures', amt: 40}, {name: 'Silicon', amt: 40}]},
+            'Nanites': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Bacteria', amt: 40}, {name: 'Reactive Metals', amt: 40}]},
+            'Oxides': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Oxidizing Compound', amt: 40}, {name: 'Oxygen', amt: 40}]},
+            'Polyaramids': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Industrial Fibers', amt: 40}, {name: 'Oxidizing Compound', amt: 40}]},
+            'Polytextiles': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Industrial Fibers', amt: 40}, {name: 'Biofuels', amt: 40}]},
+            'Rocket Fuel': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Electrolytes', amt: 40}, {name: 'Plasmoids', amt: 40}]},
+            'Silicate Glass': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Silicon', amt: 40}, {name: 'Oxidizing Compound', amt: 40}]},
+            'Superconductors': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Plasmoids', amt: 40}, {name: 'Water', amt: 40}]},
+            'Supertensile Plastics': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Biomass', amt: 40}, {name: 'Oxygen', amt: 40}]},
+            'Synthetic Oil': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Oxygen', amt: 40}, {name: 'Electrolytes', amt: 40}]},
+            'Test Cultures': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Water', amt: 40}, {name: 'Bacteria', amt: 40}]},
+            'Transmitter': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Chiral Structures', amt: 40}, {name: 'Plasmoids', amt: 40}]},
+            'Viral Agent': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Biomass', amt: 40}, {name: 'Bacteria', amt: 40}]},
+            'Water-Cooled CPU': { level: 2, factory: 'Advanced', cycle: 60, output: 5, inputs: [{name: 'Water', amt: 40}, {name: 'Reactive Metals', amt: 40}]},
+            'Biotech Research Reports': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Nanites', amt: 10}, {name: 'Livestock', amt: 10}, {name: 'Construction Blocks', amt: 10}]},
+            'Camera Drones': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Silicate Glass', amt: 10}, {name: 'Rocket Fuel', amt: 10}]},
+            'Condensates': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Oxides', amt: 10}, {name: 'Coolant', amt: 10}]},
+            'Cryoprotectant Solution': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Test Cultures', amt: 10}, {name: 'Synthetic Oil', amt: 10}, {name: 'Fertilizer', amt: 10}]},
+            'Data Chips': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Microfiber Shielding', amt: 10}, {name: 'Supertensile Plastics', amt: 10}]},
+            'Gel-Matrix Biopaste': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Biocells', amt: 10}, {name: 'Oxides', amt: 10}, {name: 'Superconductors', amt: 10}]},
+            'Guidance Systems': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Transmitter', amt: 10}, {name: 'Water-Cooled CPU', amt: 10}]},
+            'Hazmat Detection Systems': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Polytextiles', amt: 10}, {name: 'Transmitter', amt: 10}, {name: 'Viral Agent', amt: 10}]},
+            'Hermetic Membranes': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Genetically Enhanced Livestock', amt: 10}, {name: 'Polyaramids', amt: 10}]},
+            'High-Tech Transmitters': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Polyaramids', amt: 10}, {name: 'Transmitter', amt: 10}]},
+            'Industrial Explosives': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Fertilizer', amt: 10}, {name: 'Polytextiles', amt: 10}]},
+            'Neocoms': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Biocells', amt: 10}, {name: 'Silicate Glass', amt: 10}]},
+            'Nuclear Reactors': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Enriched Uranium', amt: 10}, {name: 'Microfiber Shielding', amt: 10}]},
+            'Planetary Vehicles': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Mechanical Parts', amt: 10}, {name: 'Miniature Electronics', amt: 10}, {name: 'Supertensile Plastics', amt: 10}]},
+            'Robotics': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Consumer Electronics', amt: 10}, {name: 'Mechanical Parts', amt: 10}]},
+            'Smartfab Units': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Construction Blocks', amt: 10}, {name: 'Miniature Electronics', amt: 10}]},
+            'Supercomputers': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Consumer Electronics', amt: 10}, {name: 'Coolant', amt: 10}, {name: 'Water-Cooled CPU', amt: 10}]},
+            'Synthetic Synapses': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Supertensile Plastics', amt: 10}, {name: 'Test Cultures', amt: 10}]},
+            'Transcranial Microcontrollers': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Biocells', amt: 10}, {name: 'Nanites', amt: 10}]},
+            'Ukomi Superconductors': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Superconductors', amt: 10}, {name: 'Synthetic Oil', amt: 10}]},
+            'Vaccines': { level: 3, factory: 'Advanced', cycle: 60, output: 3, inputs: [{name: 'Livestock', amt: 10}, {name: 'Viral Agent', amt: 10}]},
+            'Broadcast Node': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Data Chips', amt: 6}, {name: 'High-Tech Transmitters', amt: 6}, {name: 'Neocoms', amt: 6}]},
+            'Integrity Response Drones': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Gel-Matrix Biopaste', amt: 6}, {name: 'Hazmat Detection Systems', amt: 6}, {name: 'Planetary Vehicles', amt: 6}]},
+            'Nano-Factory': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Industrial Explosives', amt: 6}, {name: 'Ukomi Superconductors', amt: 6}, {name: 'Reactive Metals', amt: 40}]},
+            'Organic Mortar Applicators': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Condensates', amt: 6}, {name: 'Robotics', amt: 6}, {name: 'Bacteria', amt: 40}]},
+            'Recursive Computing Module': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Guidance Systems', amt: 6}, {name: 'Synthetic Synapses', amt: 6}, {name: 'Transcranial Microcontrollers', amt: 6}]},
+            'Self-Harmonizing Power Core': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Camera Drones', amt: 6}, {name: 'Nuclear Reactors', amt: 6}, {name: 'Hermetic Membranes', amt: 6}]},
+            'Sterile Conduits': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Smartfab Units', amt: 6}, {name: 'Vaccines', amt: 6}, {name: 'Water', amt: 40}]},
+            'Wetware Mainframe': { level: 4, factory: 'High-Tech', cycle: 60, output: 1, inputs: [{name: 'Biotech Research Reports', amt: 6}, {name: 'Cryoprotectant Solution', amt: 6}, {name: 'Supercomputers', amt: 6}]}
+        };
+
+        const p0Materials = [
+            'Aqueous Liquids', 'Autotrophs', 'Base Metals', 'Carbon Compounds', 'Complex Organisms',
+            'Felsic Magma', 'Heavy Metals', 'Ionic Solutions', 'Microorganisms', 'Noble Gas',
+            'Noble Metals', 'Non-CS Crystals', 'Planktic Colonies', 'Reactive Gas', 'Suspended Plasma'
+        ];
+
+        // Populate dropdown
+        const select = document.getElementById('product');
+        Object.keys(recipes).sort().forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = `${name} (P${recipes[name].level})`;
+            select.appendChild(opt);
+        });
+
+        // Compute
+        function compute() {
+            const product = document.getElementById('product').value;
+            const rate = parseFloat(document.getElementById('rate').value) || 0;
+            const ecuYield = parseFloat(document.getElementById('ecuYield').value) || 3000;
+
+            if (!product || rate <= 0) {
+                document.getElementById('results').innerHTML = '<p style="color:#ff6666;">Please select a product and enter a valid rate.</p>';
+                return;
+            }
+
+            const requirements = {};
+            const factories = {};
+            const p0Needed = {};
+
+            function calculateRequirements(item, needed) {
+                if (!recipes[item]) return;
+
+                const recipe = recipes[item];
+                const cyclesPerHour = 60 / recipe.cycle;
+                const outputPerHour = recipe.output * cyclesPerHour;
+                const factoriesNeeded = needed / outputPerHour;
+
+                factories[item] = factoriesNeeded;
+                requirements[item] = needed;
+
+                recipe.inputs.forEach(input => {
+                    const inputNeeded = input.amt * (needed / recipe.output);
+                    if (recipes[input.name]) {
+                        calculateRequirements(input.name, inputNeeded);
+                    } else if (p0Materials.includes(input.name)) {
+                        p0Needed[input.name] = (p0Needed[input.name] || 0) + inputNeeded;
+                    }
+                });
+            }
+
+            calculateRequirements(product, rate);
+
+            let html = `<h3>Production Plan for <strong>${rate}/hr</strong> of <span class="p${recipes[product].level}">${product}</span></h3><ul>`;
+
+            [4, 3, 2, 1].forEach(lvl => {
+                const items = Object.keys(factories).filter(k => recipes[k].level === lvl).sort();
+                items.forEach(item => {
+                    const amt = requirements[item].toFixed(2);
+                    const fac = factories[item].toFixed(3);
+                    html += `<li class="p${lvl}"><strong>${item}</strong>: ${amt}/hr → <strong>${fac}</strong> ${recipes[item].factory} Factories</li>`;
+                });
+            });
+
+            if (Object.keys(p0Needed).length > 0) {
+                html += `<li class="p0"><strong>Raw P0 Extraction Needed:</strong></li>`;
+                Object.keys(p0Needed).sort().forEach(p0 => {
+                    const needed = p0Needed[p0].toFixed(0);
+                    const ecus = (needed / ecuYield).toFixed(2);
+                    html += `<li class="p0">→ <strong>${p0}</strong>: ${needed}/hr → <strong>${ecus}</strong> ECUs @ ${ecuYield}/hr</li>`;
+                });
+            }
+
+            html += `</ul>`;
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
