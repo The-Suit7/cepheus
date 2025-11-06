@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head(head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alliance Structure Raffle System Proposal</title>
@@ -17,7 +17,7 @@
         nav li{margin:0 15px}
         nav a{color:#fff;text-decoration:none;padding:8px 16px;border-radius:4px;transition:.3s}
         nav a:hover{background:#555}
-        main{max-width:1200px;margin:20px auto;padding:20px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.1)}
+        main{max-width:1200px;margin:20px auto;padding:20px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.1);position:relative}
         section{margin-bottom:40px;display:none}
         section.active{display:block}
         h1,h2{color:#1a1a1a}
@@ -31,8 +31,12 @@
         .win-chance{font-weight:bold;color:#28a745}
         footer{text-align:center;padding:15px;background:#1a1a1a;color:#fff;margin-top:40px;font-size:.9em}
         .corp-logo{font-weight:bold;color:#00aaff}
+        .nav-controls{display:flex;justify-content:space-between;margin:20px 0;padding:10px 0;border-top:1px solid #ddd;border-bottom:1px solid #ddd}
+        .nav-controls button{background:#444;min-width:120px}
+        .nav-controls button:disabled{background:#999;cursor:not-allowed}
+        .section-counter{text-align:center;font-size:.9em;color:#666;margin:10px 0}
     </style>
-</head>
+</head)
 <body>
 <header>
     <h1 data-en="Alliance Structure Raffle System Proposal"
@@ -51,34 +55,40 @@
 
 <nav>
     <ul>
-        <li><a href="#summary" onclick="showSection('summary')"
+        <li><a href="#summary" onclick="goToSection('summary')"
                data-en="1. Executive Summary" data-zh="1. 执行摘要" data-ru="1. Краткое резюме">1. Executive Summary</a></li>
-        <li><a href="#assets" onclick="showSection('assets')"
+        <li><a href="#assets" onclick="goToSection('assets')"
                data-en="2. Assets" data-zh="2. 资产" data-ru="2. Активы">2. Assets</a></li>
-        <li><a href="#problems" onclick="showSection('problems')"
+        <li><a href="#problems" onclick="goToSection('problems')"
                data-en="3. Problems" data-zh="3. 问题" data-ru="3. Проблемы">3. Problems</a></li>
-        <li><a href="#solution" onclick="showSection('solution')"
+        <li><a href="#solution" onclick="goToSection('solution')"
                data-en="4. Solution" data-zh="4. 解决方案" data-ru="4. Решение">4. Solution</a></li>
-        <li><a href="#process" onclick="showSection('process')"
+        <li><a href="#process" onclick="goToSection('process')"
                data-en="5. Process" data-zh="5. 流程" data-ru="5. Процесс">5. Process</a></li>
-        <li><a href="#phases" onclick="showSection('phases')"
+        <li><a href="#phases" onclick="goToSection('phases')"
                data-en="6. Phases" data-zh="6. 阶段" data-ru="6. Этапы">6. Phases</a></li>
-        <li><a href="#example" onclick="showSection('example')"
+        <li><a href="#example" onclick="goToSection('example')"
                data-en="7. Example" data-zh="7. 示例" data-ru="7. Пример">7. Example</a></li>
-        <li><a href="#revenue" onclick="showSection('revenue')"
+        <li><a href="#revenue" onclick="goToSection('revenue')"
                data-en="8. Revenue" data-zh="8. 收入" data-ru="8. Доход">8. Revenue</a></li>
-        <li><a href="#benefits" onclick="showSection('benefits')"
+        <li><a href="#benefits" onclick="goToSection('benefits')"
                data-en="9. Benefits" data-zh="9. 优势" data-ru="9. Преимущества">9. Benefits</a></li>
-        <li><a href="#plan" onclick="showSection('plan')"
+        <li><a href="#plan" onclick="goToSection('plan')"
                data-en="10. Plan" data-zh="10. 计划" data-ru="10. План">10. Plan</a></li>
-        <li><a href="#next" onclick="showSection('next')"
+        <li><a href="#next" onclick="goToSection('next')"
                data-en="11. Next Steps" data-zh="11. 后续步骤" data-ru="11. Следующие шаги">11. Next Steps</a></li>
-        <li><a href="#qa" onclick="showSection('qa')"
+        <li><a href="#qa" onclick="goToSection('qa')"
                data-en="12. Q&A" data-zh="12. 问答" data-ru="12. Вопросы и ответы">12. Q&A</a></li>
     </ul>
 </nav>
 
 <main>
+    <div class="nav-controls">
+        <button id="prevBtn" onclick="prevSection()" data-en="Previous" data-zh="上一节" data-ru="Предыдущий">Previous</button>
+        <div class="section-counter" id="sectionCounter">1 / 12</div>
+        <button id="nextBtn" onclick="nextSection()" data-en="Next" data-zh="下一节" data-ru="Следующий">Next</button>
+    </div>
+
     <!-- ==== 1. Executive Summary ==== -->
     <section id="summary" class="active">
         <h2 data-en="1. Executive Summary" data-zh="1. 执行摘要" data-ru="1. Краткое резюме">1. Executive Summary</h2>
@@ -392,13 +402,24 @@
     <!-- ==== 12. Q&A ==== -->
     <section id="qa">
         <h2 data-en="12. Q&A and Vote" data-zh="12. 问答与投票" data-ru="12. Вопросы и голосование">12. Q&A and Vote</h2>
-        <blockquote data-en="Question: Ready to replace auctions with raffles?<br>Vote: Implement next cycle?"
-                    data-zh="问题：准备好用抽奖取代拍卖吗？<br>投票：下一周期实施？"
-                    data-ru="Вопрос: Готовы заменить аукционы розыгрышами?<br>Голосование: Внедрить в следующем цикле?">Question: Ready to replace auctions with raffles?<br>Vote: Implement next cycle?</blockquote>
+        <!-- 2 separate <p> elements – no <br> tags visible -->
+        <p data-en="Question: Ready to replace auctions with raffles?"
+           data-zh="问题：准备好用抽奖取代拍卖吗？"
+           data-ru="Вопрос: Готовы заменить аукционы розыгрышами?">Question: Ready to replace auctions with raffles?</p>
+        <p data-en="Vote: Implement next cycle?"
+           data-zh="投票：下一周期实施？"
+           data-ru="Голосование: Внедрить в следующем цикле?">Vote: Implement next cycle?</p>
+
         <p data-en="Fly dangerous. Win big.<br>o7"
            data-zh="飞行危险。赢得丰厚。<br>o7"
            data-ru="Летайте опасно. Побеждайте крупно.<br>o7">Fly dangerous. Win big.<br>o7</p>
     </section>
+
+    <div class="nav-controls">
+        <button id="prevBtn2" onclick="prevSection()" data-en="Previous" data-zh="上一节" data-ru="Предыдущий">Previous</button>
+        <div class="section-counter" id="sectionCounter2">1 / 12</div>
+        <button id="nextBtn2" onclick="nextSection()" data-en="Next" data-zh="下一节" data-ru="Следующий">Next</button>
+    </div>
 </main>
 
 <footer>
@@ -411,6 +432,42 @@
 </footer>
 
 <script>
+    const sections = ['summary','assets','problems','solution','process','phases','example','revenue','benefits','plan','next','qa'];
+    let currentIndex = 0;
+
+    function updateNavButtons() {
+        document.getElementById('prevBtn').disabled = currentIndex === 0;
+        document.getElementById('nextBtn').disabled = currentIndex === sections.length - 1;
+        document.getElementById('prevBtn2').disabled = currentIndex === 0;
+        document.getElementById('nextBtn2').disabled = currentIndex === sections.length - 1;
+        document.getElementById('sectionCounter').textContent = `${currentIndex + 1} / ${sections.length}`;
+        document.getElementById('sectionCounter2').textContent = `${currentIndex + 1} / ${sections.length}`;
+        updateLanguage();
+    }
+
+    function goToSection(id) {
+        currentIndex = sections.indexOf(id);
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        updateNavButtons();
+        window.scrollTo(0, 0);
+    }
+
+    function nextSection() {
+        if (currentIndex < sections.length - 1) {
+            currentIndex++;
+            goToSection(sections[currentIndex]);
+        }
+    }
+
+    function prevSection() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            goToSection(sections[currentIndex]);
+        }
+    }
+
+    // Language toggle
     let currentLang = 'en';
     const languages = ['en', 'zh', 'ru'];
     const langNames = { en: 'English', zh: '中文', ru: 'Русский' };
@@ -428,36 +485,32 @@
         document.querySelectorAll('[data-en]').forEach(el => {
             const txt = el.getAttribute(`data-${currentLang}`);
             if (!txt) return;
-
             if (el.tagName === 'TH' || el.tagName === 'TD' || el.tagName === 'LI' || el.tagName === 'P' && el.querySelector('span')) {
                 el.innerHTML = txt;
             } else {
                 el.textContent = txt;
             }
         });
-
         document.querySelectorAll('nav a').forEach(a => {
             const txt = a.getAttribute(`data-${currentLang}`);
             if (txt) a.textContent = txt;
         });
+        // Navigation buttons
+        document.getElementById('prevBtn').textContent = document.getElementById('prevBtn').getAttribute(`data-${currentLang}`);
+        document.getElementById('nextBtn').textContent = document.getElementById('nextBtn').getAttribute(`data-${currentLang}`);
+        document.getElementById('prevBtn2').textContent = document.getElementById('prevBtn2').getAttribute(`data-${currentLang}`);
+        document.getElementById('nextBtn2').textContent = document.getElementById('nextBtn2').getAttribute(`data-${currentLang}`);
     }
 
-    function showSection(id) {
-        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        updateLanguage();
-    }
-
+    // Calculators
     function calculateChances() {
         const c1e = parseInt(document.getElementById('corp1Earned').value) || 0;
         const c1b = parseInt(document.getElementById('corp1Bought').value) || 0;
         const c1t = c1e + c1b;
-
         const c2e = parseInt(document.getElementById('corp2Earned').value) || 0;
         const c2b = parseInt(document.getElementById('corp2Bought').value) || 0;
         const c2t = c2e + c2b;
         const c2isk = c2b * 20000000;
-
         const total = c1t + c2t;
         const c1win = total ? Math.round((c1t / total) * 100) : 0;
         const c2win = total ? Math.round((c2t / total) * 100) : 0;
@@ -465,7 +518,6 @@
         document.getElementById('corp1Total').textContent = c1t;
         document.getElementById('corp2Total').textContent = c2t;
         document.getElementById('corp2Isk').textContent = c2isk.toLocaleString() + ' ISK';
-
         document.getElementById('c1Tickets').textContent = c1t;
         document.getElementById('c2Tickets').textContent = c2t;
         document.getElementById('totalTickets').textContent = total;
@@ -479,8 +531,9 @@
         document.getElementById('revenueOutput').textContent = rev.toLocaleString() + ' ISK';
     }
 
+    // Init
     calculateChances();
-    updateLanguage();
+    updateNavButtons();
 </script>
 </body>
 </html>
