@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head(head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alliance Structure Raffle System Proposal</title>
@@ -9,9 +9,53 @@
         header{background:#1a1a1a;color:#fff;padding:20px;text-align:center;position:relative}
         header h1{margin:0;font-size:2.2em}
         .author{font-style:italic;margin-top:10px;font-size:1.1em}
-        .translate-btn{position:absolute;top:15px;right:15px;background:#007bff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;font-size:.9em}
-        .translate-btn:hover{background:#0056b3}
-        .translate-btn.active{background:#28a745}
+        .language-selector {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            background: #007bff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+        .globe-icon {
+            padding: 10px 12px;
+            color: white;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+        .language-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            min-width: 120px;
+        }
+        .language-selector:hover .language-dropdown,
+        .language-selector.open .language-dropdown {
+            display: block;
+        }
+        .language-option {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: #333;
+            font-size: 0.95em;
+            transition: background 0.2s;
+        }
+        .language-option:hover {
+            background: #f0f0f0;
+        }
+        .language-option.selected {
+            font-weight: bold;
+            background: #e3f2fd;
+        }
         nav{background:#333;padding:10px}
         nav ul{list-style:none;padding:0;margin:0;display:flex;justify-content:center;flex-wrap:wrap}
         nav li{margin:0 15px}
@@ -36,7 +80,7 @@
         .nav-controls button:disabled{background:#999;cursor:not-allowed}
         .section-counter{text-align:center;font-size:.9em;color:#666;margin:10px 0}
     </style>
-</head)
+</head>
 <body>
 <header>
     <h1 data-en="Alliance Structure Raffle System Proposal"
@@ -50,7 +94,15 @@
         <span class="corp-logo" data-en="Cepheus." data-zh="Cepheus." data-ru="Cepheus.">Cepheus.</span>
     </p>
 
-    <button class="translate-btn" id="translateBtn" onclick="toggleLanguage()">English</button>
+    <!-- Language Dropdown with Globe Icon -->
+    <div class="language-selector" id="languageSelector">
+        <div class="globe-icon">[Globe Icon]</div>
+        <div class="language-dropdown">
+            <div class="language-option" data-lang="en" onclick="setLanguage('en')">English</div>
+            <div class="language-option" data-lang="zh" onclick="setLanguage('zh')">中文</div>
+            <div class="language-option" data-lang="ru" onclick="setLanguage('ru')">Русский</div>
+        </div>
+    </div>
 </header>
 
 <nav>
@@ -174,6 +226,20 @@
                 data-zh="获胜者抽奖后支付基础ISK成本"
                 data-ru="Победитель оплачивает базовую стоимость в ISK после розыгрыша">Winner pays base cost in ISK after draw</li>
         </ul>
+
+        <h3 data-en="Ticket Purchase Limits" data-zh="购票限制" data-ru="Ограничения на покупку билетов">Ticket Purchase Limits</h3>
+        <ul>
+            <li data-en="Each corporation may purchase a maximum of 200 ISK tickets per raffle cycle."
+                data-zh="每个军团每个抽奖周期最多可购买200张ISK票。"
+                data-ru="Каждая корпорация может купить не более 200 билетов за ISK за один цикл розыгрыша.">Each corporation may purchase a maximum of 200 ISK tickets per raffle cycle.</li>
+            <li data-en="Earned tickets (from fleet participation) are unlimited."
+                data-zh="通过舰队参与赚取的票数无限制。"
+                data-ru="Заработанные билеты (за участие во флотах) не ограничены.">Earned tickets (from fleet participation) are unlimited.</li>
+            <li data-en="Purpose: Prevents ISK whales from dominating while preserving effort-based access."
+                data-zh="目的：防止ISK巨鲸主导，同时保留基于努力的公平机会。"
+                data-ru="Цель: предотвратить доминирование ISK-китов, сохранив доступ на основе усилий.">Purpose: Prevents ISK whales from dominating while preserving effort-based access.</li>
+        </ul>
+
         <blockquote data-en="Tickets have no cash value — they only grant a chance to win the right to purchase the asset."
                     data-zh="票没有现金价值 — 仅提供赢得购买资产权利的机会。"
                     data-ru="Билеты не имеют денежной стоимости — они лишь дают шанс выиграть право покупки актива.">Tickets have no cash value — they only grant a chance to win the right to purchase the asset.</blockquote>
@@ -235,7 +301,7 @@
             <label data-en="Earned Tickets:" data-zh="赚取票数：" data-ru="Заработанные билеты:">Earned Tickets:</label>
             <input type="number" id="corp1Earned" value="10" min="0">
             <label data-en="Bought Tickets:" data-zh="购买票数：" data-ru="Купленные билеты:">Bought Tickets:</label>
-            <input type="number" id="corp1Bought" value="0" min="0">
+            <input type="number" id="corp1Bought" value="0" min="0" max="200" oninput="enforceLimit(this, 'corp1')">
             <p data-en="Total Bid: <span id='corp1Total'>10</span>"
                data-zh="总竞标票数：<span id='corp1Total'>10</span>"
                data-ru="Итого ставка: <span id='corp1Total'>10</span>">Total Bid: <span id="corp1Total">10</span></p>
@@ -244,10 +310,15 @@
             <label data-en="Earned Tickets:" data-zh="赚取票数：" data-ru="Заработанные билеты:">Earned Tickets:</label>
             <input type="number" id="corp2Earned" value="10" min="0">
             <label data-en="Bought Tickets:" data-zh="购买票数：" data-ru="Купленные билеты:">Bought Tickets:</label>
-            <input type="number" id="corp2Bought" value="15" min="0">
+            <input type="number" id="corp2Bought" value="15" min="0" max="200" oninput="enforceLimit(this, 'corp2')">
             <p data-en="Total Bid: <span id='corp2Total'>25</span> (ISK Spent: <span id='corp2Isk'>300,000,000</span>)"
                data-zh="总竞标票数：<span id='corp2Total'>25</span>（花费ISK：<span id='corp2Isk'>300,000,000</span>）"
                data-ru="Итого ставка: <span id='corp2Total'>25</span> (Потрачено ISK: <span id='corp2Isk'>300,000,000</span>)">Total Bid: <span id="corp2Total">25</span> (ISK Spent: <span id="corp2Isk">300,000,000</span>)</p>
+
+            <p id="limitWarning" style="color: #d32f2f; font-weight: bold; display: none;" 
+               data-en="Warning: Maximum 200 purchasable tickets per corp!"
+               data-zh="警告：每个军团最多购买200张票！"
+               data-ru="Внимание: Максимум 200 покупаемых билетов на корп!">Warning: Maximum 200 purchasable tickets per corp!</p>
 
             <button onclick="calculateChances()" data-en="Calculate Win Chances" data-zh="计算胜率" data-ru="Рассчитать шансы">Calculate Win Chances</button>
 
@@ -276,9 +347,9 @@
                 </tbody>
             </table>
         </div>
-        <p data-en="Corp 2 increases odds via investment; Corp 1 competes via effort."
-           data-zh="军团2通过投资提升胜率；军团1通过努力竞争。"
-           data-ru="Корп 2 повышает шансы за счёт инвестиций; Корп 1 соревнуется усилиями.">Corp 2 increases odds via investment; Corp 1 competes via effort.</p>
+        <p data-en="Corp 2 increases odds via investment (capped at 200 ISK tickets); Corp 1 competes via effort (unlimited earned tickets)."
+           data-zh="军团2通过投资提升胜率（ISK票上限200张）；军团1通过努力竞争（赚取票无限制）。"
+           data-ru="Корп 2 повышает шансы за счёт инвестиций (макс. 200 билетов за ISK); Корп 1 соревнуется усилиями (заработанные билеты без лимита).">Corp 2 increases odds via investment (capped at 200 ISK tickets); Corp 1 competes via effort (unlimited earned tickets).</p>
     </section>
 
     <!-- ==== 8. Revenue ==== -->
@@ -399,18 +470,15 @@
         </ol>
     </section>
 
-<!-- ==== 12. Q&A ==== -->
+    <!-- ==== 12. Q&A ==== -->
     <section id="qa">
         <h2 data-en="12. Q&A and Vote" data-zh="12. 问答与投票" data-ru="12. Вопросы и голосование">12. Q&A and Vote</h2>
-        
         <p data-en="Question: Ready to replace auctions with raffles?"
            data-zh="问题：准备好用抽奖取代拍卖吗？"
            data-ru="Вопрос: Готовы заменить аукционы розыгрышами?">Question: Ready to replace auctions with raffles?</p>
-        
         <p data-en="Vote: Implement next cycle?"
            data-zh="投票：下一周期实施？"
            data-ru="Голосование: Внедрить в следующем цикле?">Vote: Implement next cycle?</p>
-        
         <p data-en="Fly dangerous. Win big." data-zh="飞行危险。赢得丰厚。" data-ru="Летайте опасно. Побеждайте крупно.">Fly dangerous. Win big.</p>
         <p data-en="o7" data-zh="o7" data-ru="o7">o7</p>
     </section>
@@ -434,7 +502,60 @@
 <script>
     const sections = ['summary','assets','problems','solution','process','phases','example','revenue','benefits','plan','next','qa'];
     let currentIndex = 0;
+    let currentLang = 'en';
 
+    // Language Management
+    function setLanguage(lang) {
+        currentLang = lang;
+        updateLanguage();
+        highlightSelectedLanguage();
+        closeDropdown();
+    }
+
+    function highlightSelectedLanguage() {
+        document.querySelectorAll('.language-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.getAttribute('data-lang') === currentLang);
+        });
+    }
+
+    function closeDropdown() {
+        document.getElementById('languageSelector').classList.remove('open');
+    }
+
+    // Toggle dropdown on globe click
+    document.querySelector('.globe-icon').addEventListener('click', function(e) {
+        e.stopPropagation();
+        document.getElementById('languageSelector').classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!document.getElementById('languageSelector').contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+    function updateLanguage() {
+        document.querySelectorAll('[data-en]').forEach(el => {
+            const txt = el.getAttribute(`data-${currentLang}`);
+            if (!txt) return;
+            if (el.tagName === 'TH' || el.tagName === 'TD' || el.tagName === 'LI' || el.tagName === 'P' && el.querySelector('span')) {
+                el.innerHTML = txt;
+            } else {
+                el.textContent = txt;
+            }
+        });
+        document.querySelectorAll('nav a').forEach(a => {
+            const txt = a.getAttribute(`data-${currentLang}`);
+            if (txt) a.textContent = txt;
+        });
+        document.getElementById('prevBtn').textContent = document.getElementById('prevBtn').getAttribute(`data-${currentLang}`);
+        document.getElementById('nextBtn').textContent = document.getElementById('nextBtn').getAttribute(`data-${currentLang}`);
+        document.getElementById('prevBtn2').textContent = document.getElementById('prevBtn2').getAttribute(`data-${currentLang}`);
+        document.getElementById('nextBtn2').textContent = document.getElementById('nextBtn2').getAttribute(`data-${currentLang}`);
+    }
+
+    // Navigation
     function updateNavButtons() {
         document.getElementById('prevBtn').disabled = currentIndex === 0;
         document.getElementById('nextBtn').disabled = currentIndex === sections.length - 1;
@@ -467,50 +588,31 @@
         }
     }
 
-    // Language toggle
-    let currentLang = 'en';
-    const languages = ['en', 'zh', 'ru'];
-    const langNames = { en: 'English', zh: '中文', ru: 'Русский' };
-
-    function toggleLanguage() {
-        const idx = languages.indexOf(currentLang);
-        currentLang = languages[(idx + 1) % languages.length];
-        document.getElementById('translateBtn').textContent = langNames[currentLang];
-        document.getElementById('translateBtn').classList.add('active');
-        setTimeout(() => document.getElementById('translateBtn').classList.remove('active'), 300);
-        updateLanguage();
-    }
-
-    function updateLanguage() {
-        document.querySelectorAll('[data-en]').forEach(el => {
-            const txt = el.getAttribute(`data-${currentLang}`);
-            if (!txt) return;
-            if (el.tagName === 'TH' || el.tagName === 'TD' || el.tagName === 'LI' || el.tagName === 'P' && el.querySelector('span')) {
-                el.innerHTML = txt;
-            } else {
-                el.textContent = txt;
-            }
-        });
-        document.querySelectorAll('nav a').forEach(a => {
-            const txt = a.getAttribute(`data-${currentLang}`);
-            if (txt) a.textContent = txt;
-        });
-        // Navigation buttons
-        document.getElementById('prevBtn').textContent = document.getElementById('prevBtn').getAttribute(`data-${currentLang}`);
-        document.getElementById('nextBtn').textContent = document.getElementById('nextBtn').getAttribute(`data-${currentLang}`);
-        document.getElementById('prevBtn2').textContent = document.getElementById('prevBtn2').getAttribute(`data-${currentLang}`);
-        document.getElementById('nextBtn2').textContent = document.getElementById('nextBtn2').getAttribute(`data-${currentLang}`);
+    // Ticket limit enforcement
+    function enforceLimit(input, corp) {
+        const value = parseInt(input.value) || 0;
+        const warning = document.getElementById('limitWarning');
+        if (value > 200) {
+            input.value = 200;
+            warning.style.display = 'block';
+            setTimeout(() => warning.style.display = 'none', 3000);
+        } else {
+            warning.style.display = 'none';
+        }
+        calculateChances();
     }
 
     // Calculators
     function calculateChances() {
         const c1e = parseInt(document.getElementById('corp1Earned').value) || 0;
-        const c1b = parseInt(document.getElementById('corp1Bought').value) || 0;
+        const c1b = Math.min(parseInt(document.getElementById('corp1Bought').value) || 0, 200);
         const c1t = c1e + c1b;
+
         const c2e = parseInt(document.getElementById('corp2Earned').value) || 0;
-        const c2b = parseInt(document.getElementById('corp2Bought').value) || 0;
+        const c2b = Math.min(parseInt(document.getElementById('corp2Bought').value) || 0, 200);
         const c2t = c2e + c2b;
         const c2isk = c2b * 20000000;
+
         const total = c1t + c2t;
         const c1win = total ? Math.round((c1t / total) * 100) : 0;
         const c2win = total ? Math.round((c2t / total) * 100) : 0;
@@ -534,6 +636,7 @@
     // Init
     calculateChances();
     updateNavButtons();
+    highlightSelectedLanguage();
 </script>
 </body>
 </html>
