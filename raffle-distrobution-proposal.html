@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alliance Structure Raffle System Proposal</title>
+    <style>
+        body{font-family:Arial,sans-serif;line-height:1.6;margin:0;padding:0;background:#f4f4f4;color:#333}
+        header{background:#1a1a1a;color:#fff;padding:20px;text-align:center;position:relative}
+        header h1{margin:0;font-size:2.2em}
+        .author{font-style:italic;margin-top:10px;font-size:1.1em}
+        .translate-btn{position:absolute;top:15px;right:15px;background:#007bff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;font-size:.9em}
+        .translate-btn:hover{background:#0056b3}
+        .translate-btn.active{background:#28a745}
+        nav{background:#333;padding:10px}
+        nav ul{list-style:none;padding:0;margin:0;display:flex;justify-content:center;flex-wrap:wrap}
+        nav li{margin:0 15px}
+        nav a{color:#fff;text-decoration:none;padding:8px 16px;border-radius:4px;transition:.3s}
+        nav a:hover{background:#555}
+        main{max-width:1200px;margin:20px auto;padding:20px;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.1)}
+        section{margin-bottom:40px;display:none}
+        section.active{display:block}
+        h1,h2{color:#1a1a1a}
+        table{width:100%;border-collapse:collapse;margin:20px 0}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left}
+        th{background:#f2f2f2}
+        .interactive{background:#e8f4fd;padding:15px;border-radius:5px;margin:20px 0;border-left:4px solid #007bff}
+        input[type=number]{width:80px;padding:5px;margin:0 5px}
+        button{background:#007bff;color:#fff;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;margin:5px}
+        button:hover{background:#0056b3}
+        .win-chance{font-weight:bold;color:#28a745}
+        footer{text-align:center;padding:15px;background:#1a1a1a;color:#fff;margin-top:40px;font-size:.9em}
+        .corp-logo{font-weight:bold;color:#00aaff}
+    </style>
+</head>
+<body>
+<header>
+    <h1 data-en="Alliance Structure Raffle System Proposal"
+        data-zh="联盟结构抽奖系统提案"
+        data-ru="Предложение системы розыгрыша структур альянса">Alliance Structure Raffle System Proposal</h1>
+    <p data-en="For Null Sec Moons, Skyhooks, and Metenox Drill Distribution"
+       data-zh="用于零安月球、天钩与梅特诺克斯钻机分配"
+       data-ru="Для распределения лун нулевого сектора, небесных крюков и буров Metenox">For Null Sec Moons, Skyhooks, and Metenox Drill Distribution</p>
+    <p class="author">
+        <strong data-en="Proposed by:" data-zh="提案人：" data-ru="Предложено:">Proposed by:</strong> Benedict Lith<br>
+        <span class="corp-logo" data-en="Cepheus." data-zh="Cepheus." data-ru="Cepheus.">Cepheus.</span>
+    </p>
+
+    <button class="translate-btn" id="translateBtn" onclick="toggleLanguage()">English</button>
+</header>
+
+<nav>
+    <ul>
+        <li><a href="#summary" onclick="showSection('summary')"
+               data-en="1. Executive Summary" data-zh="1. 执行摘要" data-ru="1. Краткое резюме">1. Executive Summary</a></li>
+        <li><a href="#assets" onclick="showSection('assets')"
+               data-en="2. Assets" data-zh="2. 资产" data-ru="2. Активы">2. Assets</a></li>
+        <li><a href="#problems" onclick="showSection('problems')"
+               data-en="3. Problems" data-zh="3. 问题" data-ru="3. Проблемы">3. Problems</a></li>
+        <li><a href="#solution" onclick="showSection('solution')"
+               data-en="4. Solution" data-zh="4. 解决方案" data-ru="4. Решение">4. Solution</a></li>
+        <li><a href="#process" onclick="showSection('process')"
+               data-en="5. Process" data-zh="5. 流程" data-ru="5. Процесс">5. Process</a></li>
+        <li><a href="#phases" onclick="showSection('phases')"
+               data-en="6. Phases" data-zh="6. 阶段" data-ru="6. Этапы">6. Phases</a></li>
+        <li><a href="#example" onclick="showSection('example')"
+               data-en="7. Example" data-zh="7. 示例" data-ru="7. Пример">7. Example</a></li>
+        <li><a href="#revenue" onclick="showSection('revenue')"
+               data-en="8. Revenue" data-zh="8. 收入" data-ru="8. Доход">8. Revenue</a></li>
+        <li><a href="#benefits" onclick="showSection('benefits')"
+               data-en="9. Benefits" data-zh="9. 优势" data-ru="9. Преимущества">9. Benefits</a></li>
+        <li><a href="#plan" onclick="showSection('plan')"
+               data-en="10. Plan" data-zh="10. 计划" data-ru="10. План">10. Plan</a></li>
+        <li><a href="#next" onclick="showSection('next')"
+               data-en="11. Next Steps" data-zh="11. 后续步骤" data-ru="11. Следующие шаги">11. Next Steps</a></li>
+        <li><a href="#qa" onclick="showSection('qa')"
+               data-en="12. Q&A" data-zh="12. 问答" data-ru="12. Вопросы и ответы">12. Q&A</a></li>
+    </ul>
+</nav>
+
+<main>
+    <!-- ==== 1. Executive Summary ==== -->
+    <section id="summary" class="active">
+        <h2 data-en="1. Executive Summary" data-zh="1. 执行摘要" data-ru="1. Краткое резюме">1. Executive Summary</h2>
+        <p data-en="This proposal introduces a ticket-based raffle system to replace traditional ISK auctions for distributing high-value null sec assets. The system rewards fleet participation, ensures fair access for all corps, generates additional alliance revenue, and maintains full transparency through hidden bidding and public audits."
+           data-zh="本提案引入票务抽奖系统，取代传统ISK拍卖，用于分配高价值零安资产。该系统奖励舰队参与，确保所有军团获得公平机会，为联盟创造额外收入，并通过隐藏竞标和公开审计保持完全透明。"
+           data-ru="Данное предложение вводит систему розыгрыша на основе билетов вместо традиционных аукционов ISK для распределения ценных активов нулевого сектора. Система поощряет участие во флотах, обеспечивает справедливый доступ для всех корпораций, генерирует дополнительный доход альянса и поддерживает полную прозрачность через скрытые ставки и публичные аудиты.">This proposal introduces a ticket-based raffle system to replace traditional ISK auctions for distributing high-value null sec assets. The system rewards fleet participation, ensures fair access for all corps, generates additional alliance revenue, and maintains full transparency through hidden bidding and public audits.</p>
+        <p data-en="Authored by Benedict Lith of Cepheus. — designed to strengthen alliance cohesion and reward active contributors."
+           data-zh="由Cepheus.的Benedict Lith撰写 — 旨在增强联盟凝聚力并奖励活跃贡献者。"
+           data-ru="Автор: Бенедикт Лит из Cepheus. — разработано для укрепления сплочённости альянса и поощрения активных участников.">Authored by Benedict Lith of Cepheus. — designed to strengthen alliance cohesion and reward active contributors.</p>
+    </section>
+
+    <!-- ==== 2. Assets ==== -->
+    <section id="assets">
+        <h2 data-en="2. Assets to Be Distributed" data-zh="2. 待分配资产" data-ru="2. Активы для распределения">2. Assets to Be Distributed</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th data-en="Asset" data-zh="资产" data-ru="Актив">Asset</th>
+                    <th data-en="Description" data-zh="描述" data-ru="Описание">Description</th>
+                    <th data-en="Approx. Base Cost (ISK)" data-zh="约基础成本 (ISK)" data-ru="Прибл. базовая стоимость (ISK)">Approx. Base Cost (ISK)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-en="R64 Moon (Athanor)" data-zh="R64月球 (Athanor)" data-ru="Луна R64 (Атанор)">R64 Moon (Athanor)</td>
+                    <td data-en="High-end moon goo for T2 production" data-zh="用于T2生产的高端月矿" data-ru="Высококачественный лунный материал для T2-производства">High-end moon goo for T2 production</td>
+                    <td>10,000,000,000</td>
+                </tr>
+                <tr>
+                    <td data-en="Metenox Moon Drill" data-zh="梅特诺克斯月球钻机" data-ru="Бур Metenox">Metenox Moon Drill</td>
+                    <td data-en="Automated moon mining in null/low/WH" data-zh="零安/低安/虫洞自动月矿" data-ru="Автоматическая добыча на лунах в null/low/WH">Automated moon mining in null/low/WH</td>
+                    <td>800,000,000</td>
+                </tr>
+                <tr>
+                    <td data-en="Orbital Skyhook" data-zh="轨道天钩" data-ru="Орбитальный небесный крюк">Orbital Skyhook</td>
+                    <td data-en="PI extraction on null planets, raidable" data-zh="零安行星PI提取，可被攻击" data-ru="Добыча PI на планетах нулевого сектора, уязвима">PI extraction on null planets, raidable</td>
+                    <td>500,000,000</td>
+                </tr>
+            </tbody>
+        </table>
+        <p data-en="All structures are alliance-funded; winners pay base cost upon winning."
+           data-zh="所有结构由联盟资助；获胜者支付基础成本。"
+           data-ru="Все структуры финансируются альянсом; победители платят базовую стоимость.">All structures are alliance-funded; winners pay base cost upon winning.</p>
+    </section>
+
+    <!-- ==== 3. Problems ==== -->
+    <section id="problems">
+        <h2 data-en="3. Problems with Current ISK Auction System" data-zh="3. 当前ISK拍卖系统的问题" data-ru="3. Проблемы текущей системы аукционов ISK">3. Problems with Current ISK Auction System</h2>
+        <ul>
+            <li data-en="Pay-to-win: Large corps and ISK whales dominate"
+                data-zh="付费即赢：大团和ISK巨鲸主导"
+                data-ru="Плати и побеждай: Крупные корпы и ISK-киты доминируют">Pay-to-win: Large corps and ISK whales dominate</li>
+            <li data-en="No reward for effort: Fleet participation is ignored"
+                data-zh="无努力奖励：舰队参与被忽视"
+                data-ru="Нет награды за усилия: Участие во флотах игнорируется">No reward for effort: Fleet participation is ignored</li>
+            <li data-en="Excludes small/new corps: Unequal access to valuable assets"
+                data-zh="排斥小型/新团：对高价值资产的访问不平等"
+                data-ru="Исключает малые/новые корпы: Неравный доступ к ценным активам">Excludes small/new corps: Unequal access to valuable assets</li>
+            <li data-en="Low motivation: No direct link between PVP and rewards"
+                data-zh="低动力：PVP与奖励无直接联系"
+                data-ru="Низкая мотивация: Нет прямой связи между PVP и наградами">Low motivation: No direct link between PVP and rewards</li>
+        </ul>
+    </section>
+
+    <!-- ==== 4. Solution ==== -->
+    <section id="solution">
+        <h2 data-en="4. The Solution: Ticket-Based Raffle System" data-zh="4. 解决方案：票务抽奖系统" data-ru="4. Решение: Система розыгрыша на билетах">4. The Solution: Ticket-Based Raffle System</h2>
+        <h3 data-en="Core Mechanics" data-zh="核心机制" data-ru="Основные механики">Core Mechanics</h3>
+        <ul>
+            <li data-en="Tickets are the currency for entering raffles"
+                data-zh="票是参与抽奖的货币"
+                data-ru="Билеты — валюта для участия в розыгрышах">Tickets are the currency for entering raffles</li>
+            <li data-en="Earn tickets: 1 ticket per qualifying fleet participation"
+                data-zh="赚取票：每参与一次合格舰队获得1张票"
+                data-ru="Зарабатывайте билеты: 1 билет за каждое квалифицированное участие во флоте">Earn tickets: 1 ticket per qualifying fleet participation</li>
+            <li data-en="Buy tickets: 20,000,000 ISK each (non-refundable, 100% profit)"
+                data-zh="购买票：每张20,000,000 ISK（不可退，100%利润）"
+                data-ru="Покупка билетов: 20 000 000 ISK за штуку (без возврата, 100% прибыль)">Buy tickets: 20,000,000 ISK each (non-refundable, 100% profit)</li>
+            <li data-en="One-time use: Tickets assigned unique ID when bid; cannot be reused"
+                data-zh="一次性使用：竞标时分配唯一ID；不可重复使用"
+                data-ru="Одноразовое использование: При ставке билету присваивается уникальный ID; повторное использование невозможно">One-time use: Tickets assigned unique ID when bid; cannot be reused</li>
+            <li data-en="Winner pays base cost in ISK after draw"
+                data-zh="获胜者抽奖后支付基础ISK成本"
+                data-ru="Победитель оплачивает базовую стоимость в ISK после розыгрыша">Winner pays base cost in ISK after draw</li>
+        </ul>
+        <blockquote data-en="Tickets have no cash value — they only grant a chance to win the right to purchase the asset."
+                    data-zh="票没有现金价值 — 仅提供赢得购买资产权利的机会。"
+                    data-ru="Билеты не имеют денежной стоимости — они лишь дают шанс выиграть право покупки актива.">Tickets have no cash value — they only grant a chance to win the right to purchase the asset.</blockquote>
+    </section>
+
+    <!-- ==== 5. Process ==== -->
+    <section id="process">
+        <h2 data-en="5. Bidding &amp; Drawing Process" data-zh="5. 竞标与抽奖流程" data-ru="5. Процесс ставок и розыгрыша">5. Bidding &amp; Drawing Process</h2>
+        <ol>
+            <li data-en="Corps earn and/or purchase tickets"
+                data-zh="军团赚取和/或购买票"
+                data-ru="Корпорации зарабатывают и/или покупают билеты">Corps earn and/or purchase tickets</li>
+            <li data-en="Submit bids (number of tickets per item) — hidden from others"
+                data-zh="提交竞标（每项资产的票数）— 对其他军团隐藏"
+                data-ru="Подача ставок (кол-во билетов на актив) — скрыто от других">Submit bids (number of tickets per item) — hidden from others</li>
+            <li data-en="RNG draw using public, verifiable random number generator"
+                data-zh="使用公开、可验证的随机数生成器抽奖"
+                data-ru="Розыгрыш через публичный проверяемый генератор случайных чисел">RNG draw using public, verifiable random number generator</li>
+            <li data-en="Reveal all bids for full audit and transparency"
+                data-zh="公开所有竞标以进行完整审计和透明"
+                data-ru="Раскрытие всех ставок для полного аудита и прозрачности">Reveal all bids for full audit and transparency</li>
+            <li data-en="Winner pays base cost in ISK to claim the structure"
+                data-zh="获胜者支付基础ISK以领取结构"
+                data-ru="Победитель платит базовую стоимость в ISK для получения структуры">Winner pays base cost in ISK to claim the structure</li>
+        </ol>
+    </section>
+
+    <!-- ==== 6. Phases ==== -->
+    <section id="phases">
+        <h2 data-en="6. Phased Raffle Structure" data-zh="6. 分阶段抽奖结构" data-ru="6. Поэтапная структура розыгрыша">6. Phased Raffle Structure</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th data-en="Phase" data-zh="阶段" data-ru="Этап">Phase</th>
+                    <th data-en="Items Included" data-zh="包含项目" data-ru="Включаемые активы">Items Included</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-en="1" data-zh="1" data-ru="1">1</td>
+                    <td data-en="R64 Moons, Metenox Drills (High-Value)" data-zh="R64月球、梅特诺克斯钻机（高价值）" data-ru="Луны R64, буры Metenox (высокая ценность)">R64 Moons, Metenox Drills (High-Value)</td>
+                </tr>
+                <tr>
+                    <td data-en="2" data-zh="2" data-ru="2">2</td>
+                    <td data-en="R32 Moons, Skyhooks, Standard Drills" data-zh="R32月球、天钩、标准钻机" data-ru="Луны R32, небесные крюки, стандартные буры">R32 Moons, Skyhooks, Standard Drills</td>
+                </tr>
+            </tbody>
+        </table>
+        <p data-en="No Phase 2 raffles begin until all Phase 1 items are awarded."
+           data-zh="在所有第1阶段项目分配完毕前，第2阶段抽奖不开始。"
+           data-ru="Розыгрыш 2-й фазы не начинается, пока не распределены все активы 1-й фазы.">No Phase 2 raffles begin until all Phase 1 items are awarded.</p>
+    </section>
+
+    <!-- ==== 7. Example ==== -->
+    <section id="example">
+        <h2 data-en="7. Example: R64 Moon Raffle" data-zh="7. 示例：R64月球抽奖" data-ru="7. Пример: Розыгрыш луны R64">7. Example: R64 Moon Raffle</h2>
+        <div class="interactive">
+            <h3 data-en="Corp 1 (Effort-Focused)" data-zh="军团1（努力型）" data-ru="Корп 1 (Усилие)">Corp 1 (Effort-Focused)</h3>
+            <label data-en="Earned Tickets:" data-zh="赚取票数：" data-ru="Заработанные билеты:">Earned Tickets:</label>
+            <input type="number" id="corp1Earned" value="10" min="0">
+            <label data-en="Bought Tickets:" data-zh="购买票数：" data-ru="Купленные билеты:">Bought Tickets:</label>
+            <input type="number" id="corp1Bought" value="0" min="0">
+            <p data-en="Total Bid: <span id='corp1Total'>10</span>"
+               data-zh="总竞标票数：<span id='corp1Total'>10</span>"
+               data-ru="Итого ставка: <span id='corp1Total'>10</span>">Total Bid: <span id="corp1Total">10</span></p>
+
+            <h3 data-en="Corp 2 (Investment-Focused)" data-zh="军团2（投资型）" data-ru="Корп 2 (Инвестиция)">Corp 2 (Investment-Focused)</h3>
+            <label data-en="Earned Tickets:" data-zh="赚取票数：" data-ru="Заработанные билеты:">Earned Tickets:</label>
+            <input type="number" id="corp2Earned" value="10" min="0">
+            <label data-en="Bought Tickets:" data-zh="购买票数：" data-ru="Купленные билеты:">Bought Tickets:</label>
+            <input type="number" id="corp2Bought" value="15" min="0">
+            <p data-en="Total Bid: <span id='corp2Total'>25</span> (ISK Spent: <span id='corp2Isk'>300,000,000</span>)"
+               data-zh="总竞标票数：<span id='corp2Total'>25</span>（花费ISK：<span id='corp2Isk'>300,000,000</span>）"
+               data-ru="Итого ставка: <span id='corp2Total'>25</span> (Потрачено ISK: <span id='corp2Isk'>300,000,000</span>)">Total Bid: <span id="corp2Total">25</span> (ISK Spent: <span id="corp2Isk">300,000,000</span>)</p>
+
+            <button onclick="calculateChances()" data-en="Calculate Win Chances" data-zh="计算胜率" data-ru="Рассчитать шансы">Calculate Win Chances</button>
+
+            <table id="exampleTable">
+                <thead>
+                    <tr>
+                        <th data-en="Item" data-zh="项目" data-ru="Актив">Item</th>
+                        <th data-en="Base Cost" data-zh="基础成本" data-ru="Базовая стоимость">Base Cost</th>
+                        <th data-en="Corp 1 Tickets" data-zh="军团1票数" data-ru="Билеты Корп 1">Corp 1 Tickets</th>
+                        <th data-en="Corp 2 Tickets" data-zh="军团2票数" data-ru="Билеты Корп 2">Corp 2 Tickets</th>
+                        <th data-en="Total Tickets" data-zh="总票数" data-ru="Всего билетов">Total Tickets</th>
+                        <th data-en="Corp 1 Win %" data-zh="军团1胜率" data-ru="Шанс Корп 1">Corp 1 Win %</th>
+                        <th data-en="Corp 2 Win %" data-zh="军团2胜率" data-ru="Шанс Корп 2">Corp 2 Win %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td data-en="R64 Moon" data-zh="R64月球" data-ru="Луна R64">R64 Moon</td>
+                        <td>10,000,000,000</td>
+                        <td id="c1Tickets">10</td>
+                        <td id="c2Tickets">25</td>
+                        <td id="totalTickets">35</td>
+                        <td id="c1Win" class="win-chance">29%</td>
+                        <td id="c2Win" class="win-chance">71%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p data-en="Corp 2 increases odds via investment; Corp 1 competes via effort."
+           data-zh="军团2通过投资提升胜率；军团1通过努力竞争。"
+           data-ru="Корп 2 повышает шансы за счёт инвестиций; Корп 1 соревнуется усилиями.">Corp 2 increases odds via investment; Corp 1 competes via effort.</p>
+    </section>
+
+    <!-- ==== 8. Revenue ==== -->
+    <section id="revenue">
+        <h2 data-en="8. Alliance Revenue Generation" data-zh="8. 联盟收入生成" data-ru="8. Генерация дохода альянса">8. Alliance Revenue Generation</h2>
+        <div class="interactive">
+            <h3 data-en="Revenue Calculator" data-zh="收入计算器" data-ru="Калькулятор дохода">Revenue Calculator</h3>
+            <label data-en="Total Tickets Sold:" data-zh="售出总票数：" data-ru="Всего проданных билетов:">Total Tickets Sold:</label>
+            <input type="number" id="ticketsSold" value="500" min="0">
+            <button onclick="calculateRevenue()" data-en="Calculate" data-zh="计算" data-ru="Рассчитать">Calculate</button>
+            <p data-en="Estimated Revenue from Sales: <span id='revenueOutput' class='win-chance'>10,000,000,000 ISK</span>"
+               data-zh="预计售票收入：<span id='revenueOutput' class='win-chance'>10,000,000,000 ISK</span>"
+               data-ru="Ожидаемый доход от продаж: <span id='revenueOutput' class='win-chance'>10 000 000 000 ISK</span>">Estimated Revenue from Sales: <span id="revenueOutput" class="win-chance">10,000,000,000 ISK</span></p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th data-en="Source" data-zh="来源" data-ru="Источник">Source</th>
+                    <th data-en="Revenue Model" data-zh="收入模式" data-ru="Модель дохода">Revenue Model</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-en="Ticket Sales" data-zh="售票" data-ru="Продажа билетов">Ticket Sales</td>
+                    <td data-en="100% profit (e.g., 500 tickets = 10b ISK)" data-zh="100%利润（例如500张票=100亿ISK）" data-ru="100% прибыль (напр., 500 билетов = 10 млрд ISK)">100% profit (e.g., 500 tickets = 10b ISK)</td>
+                </tr>
+                <tr>
+                    <td data-en="Base Cost Payments" data-zh="基础成本支付" data-ru="Оплата базовой стоимости">Base Cost Payments</td>
+                    <td data-en="Covers structure + profit margin" data-zh="覆盖结构+利润空间" data-ru="Покрывает структуру + маржу прибыли">Covers structure + profit margin</td>
+                </tr>
+            </tbody>
+        </table>
+        <p data-en="Estimated Revenue per Cycle: 20–50b ISK<br>Use of Funds: SRP, structures, strategic ops, reserves"
+           data-zh="每周期预计收入：200-500亿ISK<br>资金用途：SRP、结构、战略行动、储备"
+           data-ru="Ожидаемый доход за цикл: 20–50 млрд ISK<br>Использование: SRP, структуры, стратегические операции, резервы">Estimated Revenue per Cycle: 20–50b ISK<br>Use of Funds: SRP, structures, strategic ops, reserves</p>
+    </section>
+
+    <!-- ==== 9. Benefits ==== -->
+    <section id="benefits">
+        <h2 data-en="9. Key Benefits" data-zh="9. 主要优势" data-ru="9. Ключевые преимущества">9. Key Benefits</h2>
+        <ul>
+            <li data-en="Rewards fleet participation — PVP effort directly translates to opportunity"
+                data-zh="奖励舰队参与 — PVP努力直接转化为机会"
+                data-ru="Награда за участие во флотах — усилия в PVP напрямую дают шанс">Rewards fleet participation — PVP effort directly translates to opportunity</li>
+            <li data-en="Inclusive — small corps can compete through activity"
+                data-zh="包容性 — 小型军团可通过活动竞争"
+                data-ru="Инклюзивность — малые корпы могут соревноваться активностью">Inclusive — small corps can compete through activity</li>
+            <li data-en="Fair odds — win chance proportional to total investment (effort + ISK)"
+                data-zh="公平几率 — 胜率与总投入（努力+ISK）成正比"
+                data-ru="Справедливые шансы — вероятность пропорциональна общему вложению (усилия + ISK)">Fair odds — win chance proportional to total investment (effort + ISK)</li>
+            <li data-en="Transparent — hidden bids + public draw + full audit"
+                data-zh="透明 — 隐藏竞标 + 公开抽奖 + 完整审计"
+                data-ru="Прозрачность — скрытые ставки + публичный розыгрыш + полный аудит">Transparent — hidden bids + public draw + full audit</li>
+            <li data-en="Engaging — lottery excitement boosts morale and participation"
+                data-zh="引人入胜 — 抽奖兴奋感提升士气与参与度"
+                data-ru="Захватывающе — азарт лотереи повышает моральный дух и участие">Engaging — lottery excitement boosts morale and participation</li>
+            <li data-en="Profitable — generates surplus ISK for alliance goals"
+                data-zh="盈利 — 为联盟目标产生盈余ISK"
+                data-ru="Прибыльно — создаёт избыточный ISK для целей альянса">Profitable — generates surplus ISK for alliance goals</li>
+        </ul>
+    </section>
+
+    <!-- ==== 10. Plan ==== -->
+    <section id="plan">
+        <h2 data-en="10. Implementation Plan" data-zh="10. 实施计划" data-ru="10. План внедрения">10. Implementation Plan</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th data-en="Component" data-zh="组件" data-ru="Компонент">Component</th>
+                    <th data-en="Tool/Method" data-zh="工具/方法" data-ru="Инструмент/Метод">Tool/Method</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td data-en="Ticket Tracking" data-zh="票务追踪" data-ru="Отслеживание билетов">Ticket Tracking</td>
+                    <td data-en="Google Sheets + Discord bot (corp submissions)" data-zh="Google Sheets + Discord机器人（军团提交）" data-ru="Google Sheets + бот Discord (подача корпами)">Google Sheets + Discord bot (corp submissions)</td>
+                </tr>
+                <tr>
+                    <td data-en="RNG Draw" data-zh="随机抽奖" data-ru="Розыгрыш RNG">RNG Draw</td>
+                    <td data-en="Public tool (e.g., random.org) with seeded input" data-zh="公开工具（例如random.org）带种子输入" data-ru="Публичный инструмент (random.org) с сидом">Public tool (e.g., random.org) with seeded input</td>
+                </tr>
+                <tr>
+                    <td data-en="Bid Window" data-zh="竞标窗口" data-ru="Окно ставок">Bid Window</td>
+                    <td data-en="48 hours before draw" data-zh="抽奖前48小时" data-ru="48 часов до розыгрыша">48 hours before draw</td>
+                </tr>
+                <tr>
+                    <td data-en="Frequency" data-zh="频率" data-ru="Частота">Frequency</td>
+                    <td data-en="Monthly or per new asset claim" data-zh="每月或每新增资产" data-ru="Ежемесячно или при появлении нового актива">Monthly or per new asset claim</td>
+                </tr>
+                <tr>
+                    <td data-en="Optional Rule" data-zh="可选规则" data-ru="Опциональное правило">Optional Rule</td>
+                    <td data-en="Minimum 1 earned ticket to bid (anti-whale)" data-zh="竞标需至少1张赚取票（防巨鲸）" data-ru="Минимум 1 заработанный билет для ставки (против китов)">Minimum 1 earned ticket to bid (anti-whale)</td>
+                </tr>
+                <tr>
+                    <td data-en="Pilot Program" data-zh="试点计划" data-ru="Пилотная программа">Pilot Program</td>
+                    <td data-en="Test on low-value skyhooks first" data-zh="先在低价值天钩上测试" data-ru="Тест на недорогих небесных крюках">Test on low-value skyhooks first</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- ==== 11. Next Steps ==== -->
+    <section id="next">
+        <h2 data-en="11. Next Steps" data-zh="11. 后续步骤" data-ru="11. Следующие шаги">11. Next Steps</h2>
+        <ol>
+            <li data-en="Leadership Review – Approve or amend proposal"
+                data-zh="领导审查 – 批准或修改提案"
+                data-ru="Обзор руководством – одобрить или изменить предложение">Leadership Review – Approve or amend proposal</li>
+            <li data-en="Pilot Phase – Run test raffle on 1–2 skyhooks"
+                data-zh="试点阶段 – 在1-2个天钩上运行测试抽奖"
+                data-ru="Пилотная фаза – тест-розыгрыш на 1-2 небесных крюка">Pilot Phase – Run test raffle on 1–2 skyhooks</li>
+            <li data-en="Rollout – Full system for next moon/skyhook cycle"
+                data-zh="全面推出 – 下一轮月球/天钩周期启用完整系统"
+                data-ru="Запуск – полная система на следующем цикле луна/небесный крюк">Rollout – Full system for next moon/skyhook cycle</li>
+            <li data-en="Feedback Loop – Adjust ticket price, phases, or rules as needed"
+                data-zh="反馈循环 – 根据需要调整票价、阶段或规则"
+                data-ru="Обратная связь – корректировка цены билетов, фаз или правил">Feedback Loop – Adjust ticket price, phases, or rules as needed</li>
+        </ol>
+    </section>
+
+    <!-- ==== 12. Q&A ==== -->
+    <section id="qa">
+        <h2 data-en="12. Q&A and Vote" data-zh="12. 问答与投票" data-ru="12. Вопросы и голосование">12. Q&A and Vote</h2>
+        <blockquote data-en="Question: Ready to replace auctions with raffles?<br>Vote: Implement next cycle?"
+                    data-zh="问题：准备好用抽奖取代拍卖吗？<br>投票：下一周期实施？"
+                    data-ru="Вопрос: Готовы заменить аукционы розыгрышами?<br>Голосование: Внедрить в следующем цикле?">Question: Ready to replace auctions with raffles?<br>Vote: Implement next cycle?</blockquote>
+        <p data-en="Fly dangerous. Win big.<br>o7"
+           data-zh="飞行危险。赢得丰厚。<br>o7"
+           data-ru="Летайте опасно. Побеждайте крупно.<br>o7">Fly dangerous. Win big.<br>o7</p>
+    </section>
+</main>
+
+<footer>
+    <p data-en="© 2025 <span class='corp-logo'>Cepheus.</span> | Proposal by Benedict Lith | Alliance Internal Use"
+       data-zh="© 2025 <span class='corp-logo'>Cepheus.</span> | 提案人：Benedict Lith | 联盟内部使用"
+       data-ru="© 2025 <span class='corp-logo'>Cepheus.</span> | Автор: Бенедикт Лит | Внутреннее использование альянса">© 2025 <span class="corp-logo">Cepheus.</span> | Proposal by Benedict Lith | Alliance Internal Use</p>
+    <p data-en="Fly dangerous. Fight smart. Win together."
+       data-zh="飞行危险。战斗聪明。共同胜利。"
+       data-ru="Летайте опасно. Сражайтесь умно. Побеждайте вместе.">Fly dangerous. Fight smart. Win together.</p>
+</footer>
+
+<script>
+    let currentLang = 'en';
+    const languages = ['en', 'zh', 'ru'];
+    const langNames = { en: 'English', zh: '中文', ru: 'Русский' };
+
+    function toggleLanguage() {
+        const idx = languages.indexOf(currentLang);
+        currentLang = languages[(idx + 1) % languages.length];
+        document.getElementById('translateBtn').textContent = langNames[currentLang];
+        document.getElementById('translateBtn').classList.add('active');
+        setTimeout(() => document.getElementById('translateBtn').classList.remove('active'), 300);
+        updateLanguage();
+    }
+
+    function updateLanguage() {
+        document.querySelectorAll('[data-en]').forEach(el => {
+            const txt = el.getAttribute(`data-${currentLang}`);
+            if (!txt) return;
+
+            if (el.tagName === 'TH' || el.tagName === 'TD' || el.tagName === 'LI' || el.tagName === 'P' && el.querySelector('span')) {
+                el.innerHTML = txt;
+            } else {
+                el.textContent = txt;
+            }
+        });
+
+        document.querySelectorAll('nav a').forEach(a => {
+            const txt = a.getAttribute(`data-${currentLang}`);
+            if (txt) a.textContent = txt;
+        });
+    }
+
+    function showSection(id) {
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        updateLanguage();
+    }
+
+    function calculateChances() {
+        const c1e = parseInt(document.getElementById('corp1Earned').value) || 0;
+        const c1b = parseInt(document.getElementById('corp1Bought').value) || 0;
+        const c1t = c1e + c1b;
+
+        const c2e = parseInt(document.getElementById('corp2Earned').value) || 0;
+        const c2b = parseInt(document.getElementById('corp2Bought').value) || 0;
+        const c2t = c2e + c2b;
+        const c2isk = c2b * 20000000;
+
+        const total = c1t + c2t;
+        const c1win = total ? Math.round((c1t / total) * 100) : 0;
+        const c2win = total ? Math.round((c2t / total) * 100) : 0;
+
+        document.getElementById('corp1Total').textContent = c1t;
+        document.getElementById('corp2Total').textContent = c2t;
+        document.getElementById('corp2Isk').textContent = c2isk.toLocaleString() + ' ISK';
+
+        document.getElementById('c1Tickets').textContent = c1t;
+        document.getElementById('c2Tickets').textContent = c2t;
+        document.getElementById('totalTickets').textContent = total;
+        document.getElementById('c1Win').textContent = c1win + '%';
+        document.getElementById('c2Win').textContent = c2win + '%';
+    }
+
+    function calculateRevenue() {
+        const sold = parseInt(document.getElementById('ticketsSold').value) || 0;
+        const rev = sold * 20000000;
+        document.getElementById('revenueOutput').textContent = rev.toLocaleString() + ' ISK';
+    }
+
+    calculateChances();
+    updateLanguage();
+</script>
+</body>
+</html>
