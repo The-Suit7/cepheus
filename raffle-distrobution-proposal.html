@@ -9,9 +9,29 @@
         header{background:#1a1a1a;color:#fff;padding:20px;text-align:center;position:relative}
         header h1{margin:0;font-size:2.2em}
         .author{font-style:italic;margin-top:10px;font-size:1.1em}
-        .translate-btn{position:absolute;top:15px;right:15px;background:#007bff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;font-size:.9em}
+        .translate-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.2);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+        .translate-btn {
+            background:#007bff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;
+            transition:background 0.3s;
+        }
         .translate-btn:hover{background:#0056b3}
         .translate-btn.active{background:#28a745}
+        .lang-label {
+            color: #ddd;
+            font-weight: normal;
+        }
         nav{background:#333;padding:10px}
         nav ul{list-style:none;padding:0;margin:0;display:flex;justify-content:center;flex-wrap:wrap}
         nav li{margin:0 15px}
@@ -50,8 +70,11 @@
         <span class="corp-logo" data-en="Cepheus." data-zh="Cepheus." data-ru="Cepheus.">Cepheus.</span>
     </p>
 
-    <!-- Original Toggle Button -->
-    <button class="translate-btn" id="translateBtn" onclick="toggleLanguage()">English</button>
+    <!-- Language Toggle with Fixed Multilingual Label -->
+    <div class="translate-container">
+        <span class="lang-label">English / 中文 / Русский</span>
+        <button class="translate-btn" id="translateBtn" onclick="toggleLanguage()">English</button>
+    </div>
 </header>
 
 <nav>
