@@ -9,53 +9,9 @@
         header{background:#1a1a1a;color:#fff;padding:20px;text-align:center;position:relative}
         header h1{margin:0;font-size:2.2em}
         .author{font-style:italic;margin-top:10px;font-size:1.1em}
-        .language-selector {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            display: flex;
-            align-items: center;
-            background: #007bff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 100;
-        }
-        .globe-icon {
-            padding: 10px 12px;
-            color: white;
-            font-size: 1.1em;
-            cursor: pointer;
-        }
-        .language-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            min-width: 120px;
-        }
-        .language-selector:hover .language-dropdown,
-        .language-selector.open .language-dropdown {
-            display: block;
-        }
-        .language-option {
-            padding: 10px 15px;
-            cursor: pointer;
-            color: #333;
-            font-size: 0.95em;
-            transition: background 0.2s;
-        }
-        .language-option:hover {
-            background: #f0f0f0;
-        }
-        .language-option.selected {
-            font-weight: bold;
-            background: #e3f2fd;
-        }
+        .translate-btn{position:absolute;top:15px;right:15px;background:#007bff;color:#fff;border:none;padding:8px 12px;border-radius:5px;cursor:pointer;font-size:.9em}
+        .translate-btn:hover{background:#0056b3}
+        .translate-btn.active{background:#28a745}
         nav{background:#333;padding:10px}
         nav ul{list-style:none;padding:0;margin:0;display:flex;justify-content:center;flex-wrap:wrap}
         nav li{margin:0 15px}
@@ -94,15 +50,8 @@
         <span class="corp-logo" data-en="Cepheus." data-zh="Cepheus." data-ru="Cepheus.">Cepheus.</span>
     </p>
 
-    <!-- Language Dropdown with Globe Icon -->
-    <div class="language-selector" id="languageSelector">
-        <div class="globe-icon">[Globe Icon]</div>
-        <div class="language-dropdown">
-            <div class="language-option" data-lang="en" onclick="setLanguage('en')">English</div>
-            <div class="language-option" data-lang="zh" onclick="setLanguage('zh')">中文</div>
-            <div class="language-option" data-lang="ru" onclick="setLanguage('ru')">Русский</div>
-        </div>
-    </div>
+    <!-- Original Toggle Button -->
+    <button class="translate-btn" id="translateBtn" onclick="toggleLanguage()">English</button>
 </header>
 
 <nav>
@@ -503,37 +452,17 @@
     const sections = ['summary','assets','problems','solution','process','phases','example','revenue','benefits','plan','next','qa'];
     let currentIndex = 0;
     let currentLang = 'en';
+    const languages = ['en', 'zh', 'ru'];
+    const langNames = { en: 'English', zh: '中文', ru: 'Русский' };
 
-    // Language Management
-    function setLanguage(lang) {
-        currentLang = lang;
+    function toggleLanguage() {
+        const idx = languages.indexOf(currentLang);
+        currentLang = languages[(idx + 1) % languages.length];
+        document.getElementById('translateBtn').textContent = langNames[currentLang];
+        document.getElementById('translateBtn').classList.add('active');
+        setTimeout(() => document.getElementById('translateBtn').classList.remove('active'), 300);
         updateLanguage();
-        highlightSelectedLanguage();
-        closeDropdown();
     }
-
-    function highlightSelectedLanguage() {
-        document.querySelectorAll('.language-option').forEach(opt => {
-            opt.classList.toggle('selected', opt.getAttribute('data-lang') === currentLang);
-        });
-    }
-
-    function closeDropdown() {
-        document.getElementById('languageSelector').classList.remove('open');
-    }
-
-    // Toggle dropdown on globe click
-    document.querySelector('.globe-icon').addEventListener('click', function(e) {
-        e.stopPropagation();
-        document.getElementById('languageSelector').classList.toggle('open');
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!document.getElementById('languageSelector').contains(e.target)) {
-            closeDropdown();
-        }
-    });
 
     function updateLanguage() {
         document.querySelectorAll('[data-en]').forEach(el => {
@@ -555,7 +484,6 @@
         document.getElementById('nextBtn2').textContent = document.getElementById('nextBtn2').getAttribute(`data-${currentLang}`);
     }
 
-    // Navigation
     function updateNavButtons() {
         document.getElementById('prevBtn').disabled = currentIndex === 0;
         document.getElementById('nextBtn').disabled = currentIndex === sections.length - 1;
@@ -588,7 +516,6 @@
         }
     }
 
-    // Ticket limit enforcement
     function enforceLimit(input, corp) {
         const value = parseInt(input.value) || 0;
         const warning = document.getElementById('limitWarning');
@@ -602,7 +529,6 @@
         calculateChances();
     }
 
-    // Calculators
     function calculateChances() {
         const c1e = parseInt(document.getElementById('corp1Earned').value) || 0;
         const c1b = Math.min(parseInt(document.getElementById('corp1Bought').value) || 0, 200);
@@ -636,7 +562,6 @@
     // Init
     calculateChances();
     updateNavButtons();
-    highlightSelectedLanguage();
 </script>
 </body>
 </html>
