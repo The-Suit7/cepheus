@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Buyback Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total-offered { font-size: 1.3em; font-weight: bold; color: #1a5fb4; margin: 15px 0; padding: 10px; background-color: #f0f8ff; border-left: 5px solid #1a5fb4; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Buyback Tool</h1>
+    <p>Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <textarea id="input" placeholder="Large ACM Compact Armor Repairer 29&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        let loaded = false;
+
+        function parseCSVLine(line) {
+            const values = [];
+            let i = 0;
+            while (i < line.length) {
+                let val = '';
+                if (line[i] === '"') {
+                    i++;
+                    while (i < line.length) {
+                        if (line[i] === '"') {
+                            if (i + 1 < line.length && line[i + 1] === '"') {
+                                val += '"';
+                                i += 2;
+                            } else {
+                                i++;
+                                break;
+                            }
+                        } else {
+                            val += line[i];
+                            i++;
+                        }
+                    }
+                } else {
+                    while (i < line.length && line[i] !== ',') {
+                        val += line[i];
+                        i++;
+                    }
+                }
+                values.push(val);
+                if (i < line.length && line[i] === ',') i++;
+            }
+            return values;
+        }
+
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/);
+            const headers = parseCSVLine(lines[0]);
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                data.push(parseCSVLine(lines[i]));
+            }
+            return {headers, data};
+        }
+
+        async function loadItemMap() {
+            try {
+                const res = await fetch('https://www.fuzzwork.co.uk/dump/latest/invTypes.csv');
+                if (!res.ok) throw new Error('Failed to fetch item data');
+                const text = await res.text();
+                const {headers, data} = parseCSV(text);
+                const nameIdx = headers.indexOf('typeName');
+                const idIdx = headers.indexOf('typeID');
+                const volIdx = headers.indexOf('volume');
+                const pubIdx = headers.indexOf('published');
+                const mktIdx = headers.indexOf('marketGroupID');
+                if (nameIdx === -1 || idIdx === -1 || volIdx === -1 || pubIdx === -1 || mktIdx === -1) {
+                    throw new Error('Invalid CSV format');
+                }
+                for (let row of data) {
+                    if (row.length < Math.max(nameIdx, idIdx, volIdx, pubIdx, mktIdx) + 1) continue;
+                    if (row[pubIdx] === '1' && row[mktIdx].trim() !== '') {
+                        const name = row[nameIdx].trim();
+                        const typeId = parseInt(row[idIdx]);
+                        const volume = parseFloat(row[volIdx]);
+                        if (!isNaN(typeId) && !isNaN(volume) && volume > 0) {
+                            itemMap.set(name, {typeId, volume});
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading item map:', e);
+                alert('Failed to load item data. Please try again later.');
+            }
+        }
+
+        async function calculate() {
+            document.getElementById('loading').style.display = 'block';
+            if (!loaded) {
+                await loadItemMap();
+                loaded = true;
+            }
+            document.getElementById('loading').style.display = 'none';
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            // Parse and aggregate items
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const nameToInfo = new Map();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found in database'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume});
+                }
+            });
+
+            // Get prices
+            const typeIds = items
+                .map(item => nameToInfo.get(item.name))
+                .filter(info => info && info.typeId)
+                .map(info => info.typeId);
+            let prices = {};
+            if (typeIds.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIds.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            // Calculate total first
+            let totalOffered = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="4" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                if (!info.typeId) {
+                    row += `<td colspan="4" class="error">Loading failed</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const buyStr = prices[info.typeId]?.buy?.max;
+                if (!buyStr || parseFloat(buyStr) <= 0) {
+                    row += `<td colspan="4" class="error">No buy price available</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const buyPrice = parseFloat(buyStr);
+                const iskPerM3 = buyPrice / info.volume;
+                const taxRate = iskPerM3 < 2000 ? 20 : 10;
+                const offeredPerUnit = buyPrice * (1 - taxRate / 100);
+                const totalItem = offeredPerUnit * item.qty;
+                totalOffered += totalItem;
+
+                row += `<td>${buyPrice.toLocaleString()}</td>
+                        <td>${Math.round(iskPerM3)}</td>
+                        <td>${taxRate}%</td>
+                        <td>${Math.round(totalItem).toLocaleString()}</td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            // Build final HTML with total at the top
+            let html = '';
+            if (totalOffered > 0) {
+                html += `<div class="total-offered">Total Offered: ${Math.round(totalOffered).toLocaleString()} ISK</div>`;
+            }
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Jita Buy Price (ISK)</th><th>ISK per m³</th><th>Tax %</th><th>Offered Total (ISK)</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
