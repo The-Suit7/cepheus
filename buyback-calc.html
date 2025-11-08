@@ -16,12 +16,40 @@
         #loading { display: none; color: blue; font-weight: bold; margin-left: 10px; display: inline-block; }
         .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
         .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+        .instructions { 
+            background-color: #e7f3ff; 
+            border-left: 4px solid #007bff; 
+            padding: 12px; 
+            margin: 15px 0; 
+            font-size: 0.95em; 
+            line-height: 1.5;
+        }
+        .instructions ol { margin: 8px 0; padding-left: 20px; }
+        .instructions code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
     </style>
 </head>
 <body>
     <h1>EVE Online Buyback Tool</h1>
     <p class="info">Paste your inventory items below in the format: <code>Item Name Quantity</code> (one per line). Duplicates are summed.</p>
     <p class="info"><strong>Tax:</strong> 10% on Jita max buy if ISK per m³ ≥ 2500, otherwise 20%.</p>
+    
+    <!-- INSTRUCTIONS -->
+    <div class="instructions">
+        <strong>How to Sell to the Buyback Program:</strong>
+        <ol>
+            <li>Select all of the items in your inventory you wish to sell to the Buyback Program.</li>
+            <li>Right-click any of the highlighted items → <strong>Create Contract</strong>.</li>
+            <li>Set <strong>Contract Type</strong> to <code>Item Exchange</code>.<br>
+                Set <strong>Availability</strong> to <code>Private</code> and type: <code>Cepheus.</code></li>
+            <li>Click <strong>Next</strong> → verify all items are checked.</li>
+            <li>Click <strong>Next</strong> → copy the <strong>Buyback Offer</strong> value (shown after clicking Calculate) and paste it into the <strong>"I will receive"</strong> field.</li>
+            <li>Set <strong>Expiration</strong> to <code>1 week</code> or more.</li>
+            <li>In the <strong>Description</strong> field, type <code>buyback</code> and paste your unique buyback link:<br>
+                <code>https://www.cepheuscorp.com/buyback-calc</code></li>
+            <li>Click <strong>Next</strong> → review → click <strong>Finish</strong>.</li>
+        </ol>
+    </div>
+
     <textarea id="input" placeholder="Alignment Sequencer 3218&#10;Gamma L 52&#10;..."></textarea>
     <br>
     <button onclick="calculate()">Calculate</button>
@@ -60,20 +88,17 @@
             console.log('Starting data load...');
             try {
                 const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const totalSteps = 15; // 1 cat + 1 grp + 1 mat + 10 types + 1 skin + 1 skinMat
+                const totalSteps = 15;
                 let step = 0;
 
-                // 1. categories.jsonl
                 updateProgress(step++, totalSteps);
                 const cats = await loadJsonl(base + 'categories.jsonl');
                 cats.forEach(r => categoryMap.set(r['_key'], r['name']['en']));
 
-                // 2. groups.jsonl
                 updateProgress(step++, totalSteps);
                 const grps = await loadJsonl(base + 'groups.jsonl');
                 grps.forEach(r => groupMap.set(r['_key'], {name: r['name']['en'], categoryId: r['categoryID']}));
 
-                // 3. typeMaterials.jsonl
                 updateProgress(step++, totalSteps);
                 const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
                 tmats.forEach(r => {
@@ -83,16 +108,13 @@
                     }
                 });
 
-                // 4–13. types1.jsonl to types10.jsonl
                 const types = [];
                 for (let i = 1; i <= 10; i++) {
                     updateProgress(step++, totalSteps);
                     const part = await loadJsonl(base + `types${i}.jsonl`);
                     types.push(...part);
-                    console.log(`Loaded types${i}.jsonl: ${part.length} entries`);
                 }
 
-                // 14. skins.jsonl
                 updateProgress(step++, totalSteps);
                 const skins = await loadJsonl(base + 'skins.jsonl');
                 skins.forEach(r => {
@@ -100,7 +122,6 @@
                     skinMap.set(r['_key'], {typeId: r['typeID'], name});
                 });
 
-                // 15. skinMaterials.jsonl (safe)
                 updateProgress(step++, totalSteps);
                 const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
                 skinMats.forEach(r => {
@@ -110,7 +131,6 @@
                     }
                 });
 
-                // Build main item map (regular items)
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
@@ -126,7 +146,6 @@
                     }
                 });
 
-                // Add SKINs
                 skinMap.forEach((skin, skinId) => {
                     itemMap.set(skin.name, {
                         typeId: skin.typeId,
@@ -136,7 +155,6 @@
                     });
                 });
 
-                // Add fallback boosters
                 Object.entries(fallbackItemMap).forEach(([name, info]) => {
                     if (!itemMap.has(name)) {
                         itemMap.set(name, info);
