@@ -13,77 +13,137 @@
         th { background-color: #f2f2f2; }
         #results { margin-top: 20px; }
         .error { color: red; }
-        .loading { color: blue; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
     </style>
 </head>
 <body>
     <h1>EVE Online Reprocessing Tool</h1>
-    <p>Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
-    <textarea id="input" placeholder="Microwave L 13&#10;Valkyrie I 3&#10;..."></textarea>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Large ACM Compact Armor Repairer 29&#10;..."></textarea>
     <br>
     <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
     <div id="results"></div>
 
     <script>
-        let itemMap = new Map();
-        let materialsMap = new Map();
-        let groupMap = new Map();
-        let categoryMap = new Map();
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
         let loaded = false;
 
         async function loadJsonl(url) {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
             const text = await res.text();
-            return text.trim().split('\n').map(line => JSON.parse(line));
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
         }
 
         async function loadData() {
-            const baseUrl = 'https://raw.githubusercontent.com/yourusername/your-repo-name/main/eve_data/'; // Replace 'yourusername/your-repo-name' with your actual GitHub repo
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
 
-            // Load categories.jsonl
-            const categories = await loadJsonl(baseUrl + 'categories.jsonl');
-            categories.forEach(row => categoryMap.set(row['_key'], row['name']['en']));
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    if (row['_key'] !== undefined && row['name'] && row['name']['en']) {
+                        categoryMap.set(row['_key'], row['name']['en']);
+                    }
+                });
+                console.log('Categories loaded:', categoryMap.size);
 
-            // Load groups.jsonl
-            const groups = await loadJsonl(baseUrl + 'groups.jsonl');
-            groups.forEach(row => groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']}));
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    if (row['_key'] !== undefined && row['name'] && row['name']['en'] && row['categoryID'] !== undefined) {
+                        groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                    }
+                });
+                console.log('Groups loaded:', groupMap.size);
 
-            // Load typeMaterials.jsonl
-            const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
-            typeMaterials.forEach(row => {
-                materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
-            });
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    if (row['_key'] !== undefined && row['materials']) {
+                        materialsMap.set(row['_key'], row['materials'].map(m => ({
+                            materialId: m['materialTypeID'],
+                            quantity: m['quantity']
+                        })));
+                    }
+                });
+                console.log('TypeMaterials loaded:', materialsMap.size);
 
-            // Load split types files (types1.jsonl to types10.jsonl)
-            const types = [];
-            for (let i = 1; i <= 10; i++) {
-                try {
-                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
-                    types.push(...typesPart);
-                } catch (e) {
-                    console.error(`Failed to load types${i}.jsonl:`, e);
+                // Load all split types files (types1.jsonl to types10.jsonl)
+                const types = [];
+                for (let i = 1; i <= 10; i++) {
+                    try {
+                        const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                        types.push(...typesPart);
+                        console.log(`Loaded types${i}.jsonl: ${typesPart.length} entries`);
+                    } catch (e) {
+                        console.error(`Failed to load types${i}.jsonl:`, e);
+                    }
                 }
+                console.log('Total types loaded:', types.length);
+
+                // Process types
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID'] && row['name'] && row['name']['en']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {
+                            typeId: row['_key'],
+                            volume,
+                            groupId,
+                            categoryId: groupInfo.categoryId
+                        });
+                        nameToInfo.set(row['_key'], name);
+                    }
+                });
+                console.log('Item map built:', itemMap.size);
+
+                loaded = true;
+                console.log('Data load complete.');
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
             }
+        }
 
-            types.forEach(row => {
-                if (row['published'] && row['marketGroupID']) {
-                    const name = row['name']['en'];
-                    const volume = row['volume'] || 0;
-                    if (volume === 0) return;
-                    const groupId = row['groupID'];
-                    const groupInfo = groupMap.get(groupId) || {categoryId: 0};
-                    itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
-                }
-            });
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
 
-            loaded = true;
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
         }
 
         async function calculate() {
-            if (!loaded) {
-                await loadData();
-            }
+            await loadData();
+            if (!loaded) return;
 
             const text = document.getElementById('input').value;
             const lines = text.trim().split('\n').filter(l => l.trim());
