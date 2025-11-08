@@ -205,7 +205,7 @@
             }
 
             let totalMaxBuy = 0;
-            let totalBuybackOffer = 0;
+            let buybackOffer = 0;
             const tableRows = [];
 
             for (let item of items) {
@@ -226,21 +226,22 @@
                 const iskPerM3 = maxBuy / itemM3;
 
                 const taxRate = iskPerM3 >= 2500 ? 10 : 20;
+                const corpTax = taxRate + '%';
                 const buybackOfferPerUnit = maxBuy * (1 - taxRate / 100);
-                const totalBuybackOffer = buybackOfferPerUnit * item.qty;
+                const totalBuybackOfferItem = buybackOfferPerUnit * item.qty;
 
                 totalMaxBuy += maxBuy * item.qty;
-                totalBuybackOffer += totalBuybackOffer;
+                buybackOffer += totalBuybackOfferItem;
 
                 row += `<td>${maxBuy.toLocaleString()}</td>
                         <td>${Math.round(iskPerM3)}</td>
-                        <td>${taxRate}%</td>
-                        <td>${Math.round(totalBuybackOffer).toLocaleString()}</td></tr>`;
+                        <td>${corpTax}</td>
+                        <td>${Math.round(totalBuybackOfferItem).toLocaleString()}</td></tr>`;
 
                 tableRows.push(row);
             }
 
-            let html = '<div class="total">Buyback Offer: ' + Math.round(totalBuybackOffer).toLocaleString() + ' ISK</div>';
+            let html = '<div class="total">Buyback Offer: ' + Math.round(buybackOffer).toLocaleString() + ' ISK</div>';
 
             html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Corp Tax %</th><th>Buyback Offer (ISK)</th></tr>';
             html += tableRows.join('');
