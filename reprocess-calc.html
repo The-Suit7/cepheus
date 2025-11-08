@@ -16,6 +16,7 @@
         #loading { display: none; color: blue; font-weight: bold; }
         .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
         .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+        .mineral-total { margin: 10px 0; padding: 10px; background-color: #e3f2fd; border-left: 4px solid #1565c0; }
     </style>
 </head>
 <body>
@@ -29,6 +30,13 @@
     <div id="results"></div>
 
     <script>
+        // Hardcoded fallback map for items that fail strict search or matching
+        const fallbackItemMap = {
+            'EFFA Compact Assault Damage Control': {typeId: 5421, volume: 5, groupId: 60, categoryId: 7},
+            'FFR Enduring Assault Damage Control': {typeId: 5423, volume: 5, groupId: 60, categoryId: 7}
+            // Add more mappings as needed for other items
+        };
+
         const itemMap = new Map();
         const nameToInfo = new Map();
         const materialsMap = new Map();
@@ -149,7 +157,10 @@
             const allTypeIds = new Set();
             const allMaterialIds = new Set();
             items.forEach(item => {
-                const info = itemMap.get(item.name);
+                let info = itemMap.get(item.name);
+                if (!info) {
+                    info = fallbackItemMap[item.name];
+                }
                 if (!info) {
                     nameToInfo.set(item.name, {error: 'Item not found'});
                 } else {
@@ -179,6 +190,8 @@
             let totalMaxBuy = 0;
             let totalMinSell = 0;
             let totalReprocess = 0;
+            let totalItemM3 = 0;
+            let totalReprocessM3 = 0;
             const tableRows = [];
 
             for (let item of items) {
@@ -186,7 +199,7 @@
                 let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
 
                 if (info.error) {
-                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    row += `<td colspan="8" class="error">Error: ${info.error}</td></tr>`;
                     tableRows.push(row);
                     continue;
                 }
@@ -222,10 +235,13 @@
                 totalMaxBuy += maxBuy * item.qty;
                 totalMinSell += minSell * item.qty;
                 totalReprocess += reprocessValue * item.qty;
+                totalItemM3 += itemM3 * item.qty;
+                totalReprocessM3 += reprocessM3 * item.qty;
 
                 row += `<td>${maxBuy.toLocaleString()}</td>
                         <td>${minSell.toLocaleString()}</td>
                         <td>${itemM3}</td>
+                        <td>${Math.round(iskPerM3)}</td>
                         <td>${mineralList.join('<br>') || 'None'}</td>
                         <td>${reprocessM3.toFixed(2)}</td>
                         <td>${reprocessValue.toLocaleString()}</td>
@@ -238,7 +254,7 @@
             html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
             html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
 
-            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>ISK per m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
             html += tableRows.join('');
             html += '</table>';
 
