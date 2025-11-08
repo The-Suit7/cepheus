@@ -224,7 +224,7 @@
                 }
 
                 // NEW LOGIC: ISK/m³ >= 1500 AND (maxBuy > 1.2x reprocess OR minSell >= 1.4x reprocess)
-                const iskPerM3Threshold = iskPerM3 >= 1500;
+                const iskPerM3Threshold = iskPerM3 >= 2500;
                 const cond1 = maxBuy > reprocessValue * 1.20;
                 const cond2 = minSell >= reprocessValue * 1.40;
                 let worthSelling = '';
