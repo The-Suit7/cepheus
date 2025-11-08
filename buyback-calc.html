@@ -22,7 +22,7 @@
     <h1>EVE Online Buyback Tool</h1>
     <p class="info">Paste your inventory items below in the format: <code>Item Name Quantity</code> (one per line). Duplicates are summed.</p>
     <p class="info"><strong>Tax:</strong> 10% on Jita max buy if ISK per m³ ≥ 2500, otherwise 20%.</p>
-    <textarea id="input" placeholder="Microwave L 13&#10;Valkyrie I 3&#10;..."></textarea>
+    <textarea id="input" placeholder="Alignment Sequencer 3218&#10;Gamma L 52&#10;..."></textarea>
     <br>
     <button onclick="calculate()">Calculate</button>
     <p id="loading" style="display: none;">Loading 0%...</p>
@@ -33,36 +33,9 @@
         // Fallback for non-marketable items (boosters, etc.)
         // -------------------------------------------------
         const fallbackItemMap = {
-            // Boosters
             'Alignment Sequencer': { typeId: 41430, volume: 1, groupId: 314, categoryId: 20 },
             'Fermionic Sequencer': { typeId: 41432, volume: 1, groupId: 314, categoryId: 20 },
-            'Kerr Sequencer': { typeId: 41431, volume: 1, groupId: 314, categoryId: 20 },
-
-            // SKINs (example – will be loaded from skins.jsonl)
-            'Angular Deployment - Unlimited': { typeId: 55484, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Atomic Sheen Gloss - Unlimited': { typeId: 55485, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Biohazard Canary Matte - Limited': { typeId: 55486, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Boosted Mint Satin - Unlimited': { typeId: 55487, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Callie After Dark Matte - Unlimited': { typeId: 55488, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Citric Substitute Satin - Limited': { typeId: 55489, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Dark Abyss Satin - Unlimited': { typeId: 55490, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Deep Void Matte - Limited': { typeId: 55491, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Fade In - Unlimited': { typeId: 55492, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Flaylock Steel Metallic - Limited': { typeId: 55493, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Four from One - Unlimited': { typeId: 55494, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Hex Recursion - Unlimited': { typeId: 55495, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Imperial Plum Gloss - Limited': { typeId: 55496, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Muted Chrome Metallic - Limited': { typeId: 55497, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Planetfall Green Satin - Limited': { typeId: 55498, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Plasmic Hepatizon Metallic - Unlimited': { typeId: 55499, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Polished Iron Metallic - Unlimited': { typeId: 55500, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Royal Aureate Metallic - Limited': { typeId: 55501, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Sacred Stone Satin - Unlimited': { typeId: 55502, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Stellar White Satin - Unlimited': { typeId: 55503, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Strawberry Fedo Matte - Unlimited': { typeId: 55504, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Suppressed Lavender Matte - Limited': { typeId: 55505, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Violet Blight Gloss - Limited': { typeId: 55506, volume: 0.01, groupId: 1950, categoryId: 91 },
-            'Zakura Cherry Pink Matte - Unlimited': { typeId: 55507, volume: 0.01, groupId: 1950, categoryId: 91 }
+            'Kerr Sequencer': { typeId: 41431, volume: 1, groupId: 314, categoryId: 20 }
         };
 
         const itemMap        = new Map();
@@ -70,7 +43,7 @@
         const materialsMap   = new Map();
         const groupMap       = new Map();
         const categoryMap    = new Map();
-        const skinMap        = new Map();   // skinID → {typeId, name}
+        const skinMap        = new Map();
         let loaded = false;
 
         async function loadJsonl(url) {
@@ -87,20 +60,20 @@
             console.log('Starting data load...');
             try {
                 const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const totalSteps = 11;
+                const totalSteps = 15; // 1 cat + 1 grp + 1 mat + 10 types + 1 skin + 1 skinMat
                 let step = 0;
 
-                // 1. categories
+                // 1. categories.jsonl
                 updateProgress(step++, totalSteps);
                 const cats = await loadJsonl(base + 'categories.jsonl');
                 cats.forEach(r => categoryMap.set(r['_key'], r['name']['en']));
 
-                // 2. groups
+                // 2. groups.jsonl
                 updateProgress(step++, totalSteps);
                 const grps = await loadJsonl(base + 'groups.jsonl');
                 grps.forEach(r => groupMap.set(r['_key'], {name: r['name']['en'], categoryId: r['categoryID']}));
 
-                // 3. typeMaterials
+                // 3. typeMaterials.jsonl
                 updateProgress(step++, totalSteps);
                 const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
                 tmats.forEach(r => {
@@ -110,15 +83,16 @@
                     }
                 });
 
-                // 4-9. types1 … types6
+                // 4–13. types1.jsonl to types10.jsonl
                 const types = [];
-                for (let i = 1; i <= 6; i++) {
+                for (let i = 1; i <= 10; i++) {
                     updateProgress(step++, totalSteps);
                     const part = await loadJsonl(base + `types${i}.jsonl`);
                     types.push(...part);
+                    console.log(`Loaded types${i}.jsonl: ${part.length} entries`);
                 }
 
-                // 10. skins.jsonl
+                // 14. skins.jsonl
                 updateProgress(step++, totalSteps);
                 const skins = await loadJsonl(base + 'skins.jsonl');
                 skins.forEach(r => {
@@ -126,7 +100,7 @@
                     skinMap.set(r['_key'], {typeId: r['typeID'], name});
                 });
 
-                // 11. skinMaterials.jsonl (safe)
+                // 15. skinMaterials.jsonl (safe)
                 updateProgress(step++, totalSteps);
                 const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
                 skinMats.forEach(r => {
@@ -136,7 +110,7 @@
                     }
                 });
 
-                // Build main item map
+                // Build main item map (regular items)
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
@@ -152,7 +126,7 @@
                     }
                 });
 
-                // Add SKINs to itemMap
+                // Add SKINs
                 skinMap.forEach((skin, skinId) => {
                     itemMap.set(skin.name, {
                         typeId: skin.typeId,
@@ -162,7 +136,7 @@
                     });
                 });
 
-                // Add fallback items (boosters)
+                // Add fallback boosters
                 Object.entries(fallbackItemMap).forEach(([name, info]) => {
                     if (!itemMap.has(name)) {
                         itemMap.set(name, info);
