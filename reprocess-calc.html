@@ -53,61 +53,290 @@
                 // Load categories.jsonl
                 const categories = await loadJsonl(baseUrl + 'categories.jsonl');
                 categories.forEach(row => {
-                    if (row['_key'] !== undefined && row['name'] && row['name']['en']) {
-                        categoryMap.set(row['_key'], row['name']['en']);
+                    categoryMap.set(row['_key'], row['name']['en']);
+                });
+
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                });
+
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+
+                // Load all split types files (types1.jsonl to types6.jsonl, since split into 6)
+                const types = [];
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
+                }
+
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
                     }
+                });
+
+                loaded = true;
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
+            }
+        }
+
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
+
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
+        }
+
+        async function calculate() {
+            await loadData();
+            if (!loaded) return;
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const allTypeIds = new Set();
+            const allMaterialIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    allTypeIds.add(info.typeId);
+                    const materials = materialsMap.get(info.typeId) || [];
+                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                }
+            });
+
+            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
+            let prices = {};
+            if (typeIdsToFetch.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            let totalMaxBuy = 0;
+            let totalMinSell = 0;
+            let totalReprocess = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const typeId = info.typeId;
+                const buyStr = prices[typeId]?.buy?.max;
+                const sellStr = prices[typeId]?.sell?.min;
+                const maxBuy = parseFloat(buyStr) || 0;
+                const minSell = parseFloat(sellStr) || 0;
+
+                if (maxBuy <= 0) {
+                    row += `<td colspan="7" class="error">No buy price available</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const itemM3 = info.volume;
+                const iskPerM3 = maxBuy / itemM3;
+
+                const materials = materialsMap.get(typeId) || [];
+                const mineralList = [];
+                let reprocessM3 = 0;
+                let reprocessValue = 0;
+
+                const yieldRate = getReprocessYield(info.categoryId);
+
+                for (let mat of materials) {
+                    const matName = getMineralName(mat.materialId) || 'Unknown';
+                    const actualQty = Math.floor(mat.quantity * yieldRate);
+                    mineralList.push(`${matName}: ${actualQty}`);
+                    const matVol = 0.01; // Default for minerals
+                    reprocessM3 += actualQty * matVol;
+                    const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
+                    reprocessValue += actualQty * matPrice;
+                }
+
+                const worthSelling = (iskPerM3 >= 2000) && (maxBuy > reprocessValue * 1.15);
+
+                totalMaxBuy += maxBuy * item.qty;
+                totalMinSell += minSell * item.qty;
+                totalReprocess += reprocessValue * item.qty;
+
+                row += `<td>${maxBuy.toLocaleString()}</td>
+                        <td>${minSell.toLocaleString()}</td>
+                        <td>${itemM3}</td>
+                        <td>${mineralList.join('<br>') || 'None'}</td>
+                        <td>${reprocessM3.toFixed(2)}</td>
+                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td><span style="color:${worthSelling ? 'green' : 'red'};">${worthSelling ? 'Yes' : 'No'}</span></td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+``````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Reprocessing Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Reprocessing Tool</h1>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Ultraviolet M 13&#10;Ultraviolet S 10&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
+        let loaded = false;
+
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
+        }
+
+        async function loadData() {
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    categoryMap.set(row['_key'], row['name']['en']);
                 });
                 console.log('Categories loaded:', categoryMap.size);
 
                 // Load groups.jsonl
                 const groups = await loadJsonl(baseUrl + 'groups.jsonl');
                 groups.forEach(row => {
-                    if (row['_key'] !== undefined && row['name'] && row['name']['en'] && row['categoryID'] !== undefined) {
-                        groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
-                    }
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
                 });
                 console.log('Groups loaded:', groupMap.size);
 
                 // Load typeMaterials.jsonl
                 const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
                 typeMaterials.forEach(row => {
-                    if (row['_key'] !== undefined && row['materials']) {
-                        materialsMap.set(row['_key'], row['materials'].map(m => ({
-                            materialId: m['materialTypeID'],
-                            quantity: m['quantity']
-                        })));
-                    }
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
                 });
                 console.log('TypeMaterials loaded:', materialsMap.size);
 
-                // Load all split types files (types1.jsonl to types10.jsonl)
+                // Load all split types files (types1.jsonl to types6.jsonl)
                 const types = [];
-                for (let i = 1; i <= 10; i++) {
-                    try {
-                        const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
-                        types.push(...typesPart);
-                        console.log(`Loaded types${i}.jsonl: ${typesPart.length} entries`);
-                    } catch (e) {
-                        console.error(`Failed to load types${i}.jsonl:`, e);
-                    }
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
                 }
                 console.log('Total types loaded:', types.length);
 
                 // Process types
                 types.forEach(row => {
-                    if (row['published'] && row['marketGroupID'] && row['name'] && row['name']['en']) {
+                    if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
                         const volume = row['volume'] || 0;
                         if (volume === 0) return;
                         const groupId = row['groupID'];
                         const groupInfo = groupMap.get(groupId) || {categoryId: 0};
-                        itemMap.set(name, {
-                            typeId: row['_key'],
-                            volume,
-                            groupId,
-                            categoryId: groupInfo.categoryId
-                        });
-                        nameToInfo.set(row['_key'], name);
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
                     }
                 });
                 console.log('Item map built:', itemMap.size);
@@ -222,6 +451,1010 @@
                     tableRows.push(row);
                     continue;
                 }
+
+                const itemM3 = info.volume;
+                const iskPerM3 = maxBuy / itemM3;
+
+                const materials = materialsMap.get(typeId) || [];
+                const mineralList = [];
+                let reprocessM3 = 0;
+                let reprocessValue = 0;
+
+                const yieldRate = getReprocessYield(info.categoryId);
+
+                for (let mat of materials) {
+                    const matName = getMineralName(mat.materialId) || 'Unknown';
+                    const actualQty = Math.floor(mat.quantity * yieldRate);
+                    mineralList.push(`${matName}: ${actualQty}`);
+                    const matVol = 0.01; // Default for minerals
+                    reprocessM3 += actualQty * matVol;
+                    const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
+                    reprocessValue += actualQty * matPrice;
+                }
+
+                const worthSelling = (iskPerM3 >= 2000) && (maxBuy > reprocessValue * 1.15);
+
+                totalMaxBuy += maxBuy * item.qty;
+                totalMinSell += minSell * item.qty;
+                totalReprocess += reprocessValue * item.qty;
+
+                row += `<td>${maxBuy.toLocaleString()}</td>
+                        <td>${minSell.toLocaleString()}</td>
+                        <td>${itemM3}</td>
+                        <td>${mineralList.join('<br>') || 'None'}</td>
+                        <td>${reprocessM3.toFixed(2)}</td>
+                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td><span style="color:${worthSelling ? 'green' : 'red'};">${worthSelling ? 'Yes' : 'No'}</span></td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+``````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Reprocessing Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Reprocessing Tool</h1>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Ultraviolet M 13&#10;Ultraviolet S 10&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
+        let loaded = false;
+
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
+        }
+
+        async function loadData() {
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    categoryMap.set(row['_key'], row['name']['en']);
+                });
+                console.log('Categories loaded:', categoryMap.size);
+
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                });
+                console.log('Groups loaded:', groupMap.size);
+
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+                console.log('TypeMaterials loaded:', materialsMap.size);
+
+                // Load all split types files (types1.jsonl to types6.jsonl)
+                const types = [];
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
+                }
+                console.log('Total types loaded:', types.length);
+
+                // Process types
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
+                    }
+                });
+                console.log('Item map built:', itemMap.size);
+
+                loaded = true;
+                console.log('Data load complete.');
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
+            }
+        }
+
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
+
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
+        }
+
+        async function calculate() {
+            await loadData();
+            if (!loaded) return;
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const allTypeIds = new Set();
+            const allMaterialIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    allTypeIds.add(info.typeId);
+                    const materials = materialsMap.get(info.typeId) || [];
+                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                }
+            });
+
+            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
+            let prices = {};
+            if (typeIdsToFetch.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            let totalMaxBuy = 0;
+            let totalMinSell = 0;
+            let totalReprocess = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const typeId = info.typeId;
+                const buyStr = prices[typeId]?.buy?.max;
+                const sellStr = prices[typeId]?.sell?.min;
+                const maxBuy = parseFloat(buyStr) || 0;
+                const minSell = parseFloat(sellStr) || 0;
+
+                const itemM3 = info.volume;
+                const iskPerM3 = maxBuy / itemM3;
+
+                const materials = materialsMap.get(typeId) || [];
+                const mineralList = [];
+                let reprocessM3 = 0;
+                let reprocessValue = 0;
+
+                const yieldRate = getReprocessYield(info.categoryId);
+
+                for (let mat of materials) {
+                    const matName = getMineralName(mat.materialId) || 'Unknown';
+                    const actualQty = Math.floor(mat.quantity * yieldRate);
+                    mineralList.push(`${matName}: ${actualQty}`);
+                    const matVol = 0.01; // Default for minerals
+                    reprocessM3 += actualQty * matVol;
+                    const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
+                    reprocessValue += actualQty * matPrice;
+                }
+
+                // Use minSell as fallback if maxBuy is 0
+                const effectiveBuy = maxBuy > 0 ? maxBuy : minSell;
+                const effectiveIskPerM3 = effectiveBuy / itemM3;
+
+                const worthSelling = (effectiveIskPerM3 >= 2000) && (effectiveBuy > reprocessValue * 1.15);
+
+                totalMaxBuy += maxBuy * item.qty;
+                totalMinSell += minSell * item.qty;
+                totalReprocess += reprocessValue * item.qty;
+
+                row += `<td>${maxBuy.toLocaleString()}</td>
+                        <td>${minSell.toLocaleString()}</td>
+                        <td>${itemM3}</td>
+                        <td>${mineralList.join('<br>') || 'None'}</td>
+                        <td>${reprocessM3.toFixed(2)}</td>
+                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td><span style="color:${worthSelling ? 'green' : 'red'};">${worthSelling ? 'Yes' : 'No'}</span></td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+``````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Reprocessing Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Reprocessing Tool</h1>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Large ACM Compact Armor Repairer 29&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
+        let loaded = false;
+
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
+        }
+
+        async function loadData() {
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    categoryMap.set(row['_key'], row['name']['en']);
+                });
+                console.log('Categories loaded:', categoryMap.size);
+
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                });
+                console.log('Groups loaded:', groupMap.size);
+
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+                console.log('TypeMaterials loaded:', materialsMap.size);
+
+                // Load all split types files (types1.jsonl to types6.jsonl)
+                const types = [];
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
+                }
+                console.log('Total types loaded:', types.length);
+
+                // Process types
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
+                    }
+                });
+                console.log('Item map built:', itemMap.size);
+
+                loaded = true;
+                console.log('Data load complete.');
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
+            }
+        }
+
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
+
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
+        }
+
+        async function calculate() {
+            await loadData();
+            if (!loaded) return;
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const allTypeIds = new Set();
+            const allMaterialIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    allTypeIds.add(info.typeId);
+                    const materials = materialsMap.get(info.typeId) || [];
+                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                }
+            });
+
+            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
+            let prices = {};
+            if (typeIdsToFetch.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            let totalMaxBuy = 0;
+            let totalMinSell = 0;
+            let totalReprocess = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const typeId = info.typeId;
+                const buyStr = prices[typeId]?.buy?.max;
+                const sellStr = prices[typeId]?.sell?.min;
+                const maxBuy = parseFloat(buyStr) || 0;
+                const minSell = parseFloat(sellStr) || 0;
+
+                const itemM3 = info.volume;
+                const iskPerM3 = maxBuy / itemM3;
+
+                const materials = materialsMap.get(typeId) || [];
+                const mineralList = [];
+                let reprocessM3 = 0;
+                let reprocessValue = 0;
+
+                const yieldRate = getReprocessYield(info.categoryId);
+
+                for (let mat of materials) {
+                    const matName = getMineralName(mat.materialId) || 'Unknown';
+                    const actualQty = Math.floor(mat.quantity * yieldRate);
+                    mineralList.push(`${matName}: ${actualQty}`);
+                    const matVol = 0.01; // Default for minerals
+                    reprocessM3 += actualQty * matVol;
+                    const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
+                    reprocessValue += actualQty * matPrice;
+                }
+
+                const worthSelling = (iskPerM3 >= 2000) && (maxBuy > reprocessValue * 1.15);
+
+                totalMaxBuy += maxBuy * item.qty;
+                totalMinSell += minSell * item.qty;
+                totalReprocess += reprocessValue * item.qty;
+
+                row += `<td>${maxBuy.toLocaleString()}</td>
+                        <td>${minSell.toLocaleString()}</td>
+                        <td>${itemM3}</td>
+                        <td>${mineralList.join('<br>') || 'None'}</td>
+                        <td>${reprocessM3.toFixed(2)}</td>
+                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td><span style="color:${worthSelling ? 'green' : 'red'};">${worthSelling ? 'Yes' : 'No'}</span></td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+``````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Reprocessing Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Reprocessing Tool</h1>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Ultraviolet M 13&#10;Ultraviolet S 10&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
+        let loaded = false;
+
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
+        }
+
+        async function loadData() {
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    categoryMap.set(row['_key'], row['name']['en']);
+                });
+                console.log('Categories loaded:', categoryMap.size);
+
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                });
+                console.log('Groups loaded:', groupMap.size);
+
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+                console.log('TypeMaterials loaded:', materialsMap.size);
+
+                // Load all split types files (types1.jsonl to types6.jsonl)
+                const types = [];
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
+                }
+                console.log('Total types loaded:', types.length);
+
+                // Process types
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
+                    }
+                });
+                console.log('Item map built:', itemMap.size);
+
+                loaded = true;
+                console.log('Data load complete.');
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
+            }
+        }
+
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
+
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
+        }
+
+        async function calculate() {
+            await loadData();
+            if (!loaded) return;
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const allTypeIds = new Set();
+            const allMaterialIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    allTypeIds.add(info.typeId);
+                    const materials = materialsMap.get(info.typeId) || [];
+                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                }
+            });
+
+            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
+            let prices = {};
+            if (typeIdsToFetch.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            let totalMaxBuy = 0;
+            let totalMinSell = 0;
+            let totalReprocess = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const typeId = info.typeId;
+                const buyStr = prices[typeId]?.buy?.max;
+                const sellStr = prices[typeId]?.sell?.min;
+                const maxBuy = parseFloat(buyStr) || 0;
+                const minSell = parseFloat(sellStr) || 0;
+
+                const itemM3 = info.volume;
+                const iskPerM3 = maxBuy / itemM3;
+
+                const materials = materialsMap.get(typeId) || [];
+                const mineralList = [];
+                let reprocessM3 = 0;
+                let reprocessValue = 0;
+
+                const yieldRate = getReprocessYield(info.categoryId);
+
+                for (let mat of materials) {
+                    const matName = getMineralName(mat.materialId) || 'Unknown';
+                    const actualQty = Math.floor(mat.quantity * yieldRate);
+                    mineralList.push(`${matName}: ${actualQty}`);
+                    const matVol = 0.01; // Default for minerals
+                    reprocessM3 += actualQty * matVol;
+                    const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
+                    reprocessValue += actualQty * matPrice;
+                }
+
+                const worthSelling = (iskPerM3 >= 2000) && (maxBuy > reprocessValue * 1.15);
+
+                totalMaxBuy += maxBuy * item.qty;
+                totalMinSell += minSell * item.qty;
+                totalReprocess += reprocessValue * item.qty;
+
+                row += `<td>${maxBuy.toLocaleString()}</td>
+                        <td>${minSell.toLocaleString()}</td>
+                        <td>${itemM3}</td>
+                        <td>${mineralList.join('<br>') || 'None'}</td>
+                        <td>${reprocessM3.toFixed(2)}</td>
+                        <td>${reprocessValue.toLocaleString()}</td>
+                        <td><span style="color:${worthSelling ? 'green' : 'red'};">${worthSelling ? 'Yes' : 'No'}</span></td></tr>`;
+
+                tableRows.push(row);
+            }
+
+            let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
+            html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
+            html += tableRows.join('');
+            html += '</table>';
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+``````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Reprocessing Calculator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h1>EVE Online Reprocessing Tool</h1>
+    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info"><strong>Reprocessing Yield:</strong> 55% for modules, 90% for ore and ice. Uses live Jita prices (max buy for minerals, max buy/min sell for items).</p>
+    <textarea id="input" placeholder="Large ACM Compact Armor Repairer 29&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading">Loading item data... This may take a moment the first time.</p>
+    <div id="results"></div>
+
+    <script>
+        const itemMap = new Map();
+        const nameToInfo = new Map();
+        const materialsMap = new Map();
+        const groupMap = new Map();
+        const categoryMap = new Map();
+        let loaded = false;
+
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => JSON.parse(line));
+        }
+
+        async function loadData() {
+            if (loaded) return;
+            console.log('Starting data load...');
+            try {
+                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+
+                // Load categories.jsonl
+                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
+                categories.forEach(row => {
+                    categoryMap.set(row['_key'], row['name']['en']);
+                });
+                console.log('Categories loaded:', categoryMap.size);
+
+                // Load groups.jsonl
+                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
+                groups.forEach(row => {
+                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
+                });
+                console.log('Groups loaded:', groupMap.size);
+
+                // Load typeMaterials.jsonl
+                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
+                typeMaterials.forEach(row => {
+                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+                console.log('TypeMaterials loaded:', materialsMap.size);
+
+                // Load all split types files (types1.jsonl to types6.jsonl)
+                const types = [];
+                for (let i = 1; i <= 6; i++) {
+                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
+                    types.push(...typesPart);
+                }
+                console.log('Total types loaded:', types.length);
+
+                // Process types
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const volume = row['volume'] || 0;
+                        if (volume === 0) return;
+                        const groupId = row['groupID'];
+                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
+                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
+                    }
+                });
+                console.log('Item map built:', itemMap.size);
+
+                loaded = true;
+                console.log('Data load complete.');
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message + '. Check console for details.');
+            }
+        }
+
+        // Helper: Determine reprocessing yield
+        function getReprocessYield(categoryId) {
+            const categoryName = categoryMap.get(categoryId) || '';
+            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
+            return 0.55; // Default for modules
+        }
+
+        // Hardcoded mineral names for core minerals
+        function getMineralName(id) {
+            const names = {
+                34: 'Tritanium',
+                35: 'Pyerite',
+                36: 'Mexallon',
+                37: 'Isogen',
+                38: 'Nocxium',
+                39: 'Zydrine',
+                40: 'Megacyte'
+            };
+            return names[id] || `Mineral ${id}`;
+        }
+
+        async function calculate() {
+            await loadData();
+            if (!loaded) return;
+
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
+
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
+                const name = parts.join(' ');
+                const currentQty = itemTotals.get(name) || 0;
+                itemTotals.set(name, currentQty + qty);
+            }
+
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                return;
+            }
+
+            const allTypeIds = new Set();
+            const allMaterialIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    allTypeIds.add(info.typeId);
+                    const materials = materialsMap.get(info.typeId) || [];
+                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                }
+            });
+
+            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
+            let prices = {};
+            if (typeIdsToFetch.length > 0) {
+                try {
+                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(aggUrl);
+                    if (res.ok) {
+                        prices = await res.json();
+                    } else {
+                        console.error('Price fetch failed:', res.status);
+                    }
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                }
+            }
+
+            let totalMaxBuy = 0;
+            let totalMinSell = 0;
+            let totalReprocess = 0;
+            const tableRows = [];
+
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+
+                if (info.error) {
+                    row += `<td colspan="7" class="error">Error: ${info.error}</td></tr>`;
+                    tableRows.push(row);
+                    continue;
+                }
+
+                const typeId = info.typeId;
+                const buyStr = prices[typeId]?.buy?.max;
+                const sellStr = prices[typeId]?.sell?.min;
+                const maxBuy = parseFloat(buyStr) || 0;
+                const minSell = parseFloat(sellStr) || 0;
 
                 const itemM3 = info.volume;
                 const iskPerM3 = maxBuy / itemM3;
