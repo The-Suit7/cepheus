@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Online Buyback Calculator</title>
+    <style>
+        body {font-family: Arial, sans-serif; margin:20px;}
+        textarea {width:100%; height:200px;}
+        button {margin:10px 0; padding:10px;}
+        table {border-collapse:collapse; width:100%; margin-top:15px;}
+        th, td {border:1px solid #ddd; padding:8px; text-align:left;}
+        th {background:#f2f2f2;}
+        #results {margin-top:20px;}
+        .error {color:red;}
+        #loading {display:none; color:#0066cc; font-weight:bold; margin-left:10px;}
+        .total {font-size:1.1em; font-weight:bold; margin:10px 0; padding:8px;
+                background:#f8f9fa; border-left:4px solid #1a5fb4;}
+        .info {font-size:0.9em; color:#555; margin-bottom:15px;}
+        .instructions {background:#e7f3ff; border-left:4px solid #007bff;
+                       padding:12px; margin:15px 0; font-size:0.95em; line-height:1.5;}
+        .instructions ol {margin:8px 0; padding-left:20px;}
+        .instructions code {background:#f0f0f0; padding:2px 5px; border-radius:3px;}
+    </style>
+</head>
+<body>
+    <h1>EVE Online Buyback Tool</h1>
+    <p class="info">Paste your inventory items below in the format: <code>Item Name Quantity</code> (one per line). Duplicates are summed.</p>
+    <p class="info"><strong>Tax:</strong> 10 % on Jita max buy if ISK per m³ ≥ 2500, otherwise 20 %.</p>
+
+    <div class="instructions">
+        <strong>How to Sell to the Buyback Program:</strong>
+        <ol>
+            <li>Select all of the items in your inventory you wish to sell to the Buyback Program.</li>
+            <li>Right-click any of the highlighted items → <strong>Create Contract</strong>.</li>
+            <li>Set <strong>Contract Type</strong> to <code>Item Exchange</code>.<br>
+                Set <strong>Availability</strong> to <code>Private</code> and type: <code>Cepheus.</code></li>
+            <li>Click <strong>Next</strong> → verify all items are checked.</li>
+            <li>Click <strong>Next</strong> → copy the <strong>Buyback Offer</strong> value (shown after clicking Calculate) and paste it into the <strong>"I will receive"</strong> field.</li>
+            <li>Set <strong>Expiration</strong> to <code>1 week</code> or more.</li>
+            <li>In the <strong>Description</strong> field, type <code>buyback</code></li>
+            <li>Click <strong>Next</strong> → review → click <strong>Finish</strong>.</li>
+        </ol>
+    </div>
+
+    <textarea id="input" placeholder="Alignment Sequencer 3218&#10;Gamma L 52&#10;..."></textarea>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+    <p id="loading" style="display:none;">Loading 0%...</p>
+    <div id="results"></div>
+
+    <script>
+        /* -------------------------------------------------
+         *  Fallback for boosters (they have no marketGroupID)
+         * ------------------------------------------------- */
+        const fallbackItemMap = {
+            'Alignment Sequencer': {typeId:41430, volume:1,   groupId:314, categoryId:20},
+            'Fermionic Sequencer': {typeId:41432, volume:1,   groupId:314, categoryId:20},
+            'Kerr Sequencer'     : {typeId:41431, volume:1,   groupId:314, categoryId:20}
+        };
+
+        const itemMap      = new Map();   // name → {typeId,volume,groupId,categoryId}
+        const nameToInfo   = new Map();
+        const materialsMap = new Map();
+        const groupMap     = new Map();
+        const categoryMap  = new Map();
+        const skinMap      = new Map();   // skinID → {typeId,name}
+        let loaded = false;
+
+        async function loadJsonl(url){
+            const r = await fetch(url);
+            if(!r.ok) throw new Error(`Fetch failed ${url}: ${r.status}`);
+            const txt = await r.text();
+            return txt.trim().split('\n')
+                      .filter(l=>l.trim())
+                      .map(l=>JSON.parse(l));
+        }
+
+        async function loadData(upd){
+            if(loaded) return;
+            console.log('Starting data load...');
+            try{
+                const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+                const steps = 15; let s=0;
+
+                upd(s++,steps); const cats = await loadJsonl(base+'categories.jsonl');
+                cats.forEach(r=>categoryMap.set(r['_key'],r['name']['en']));
+
+                upd(s++,steps); const grps = await loadJsonl(base+'groups.jsonl');
+                grps.forEach(r=>groupMap.set(r['_key'],{name:r['name']['en'],categoryId:r['categoryID']}));
+
+                upd(s++,steps); const tmats = await loadJsonl(base+'typeMaterials.jsonl');
+                tmats.forEach(r=>{ if(r['materials'] && Array.isArray(r['materials'])) {
+                    materialsMap.set(r['_key'],
+                        r['materials'].map(m=>({materialId:m['materialTypeID'],quantity:m['quantity']})));
+                }});
+
+                const types = [];
+                for(let i=1;i<=10;i++){
+                    upd(s++,steps);
+                    const part = await loadJsonl(base+`types${i}.jsonl`);
+                    types.push(...part);
+                }
+
+                upd(s++,steps); const skins = await loadJsonl(base+'skins.jsonl');
+                skins.forEach(r=>{
+                    const n = r['skinName']?.['en'] || r['name']?.['en'] || 'Unknown Skin';
+                    skinMap.set(r['_key'],{typeId:r['typeID'],name:n});
+                });
+
+                upd(s++,steps); const skinMats = await loadJsonl(base+'skinMaterials.jsonl');
+                skinMats.forEach(r=>{ if(r['materials'] && Array.isArray(r['materials'])) {
+                    materialsMap.set(r['_key'],
+                        r['materials'].map(m=>({materialId:m['materialTypeID'],quantity:m['quantity']})));
+                }});
+
+                // ---- regular items -------------------------------------------------
+                types.forEach(row=>{
+                    if(row['published'] && row['marketGroupID']){
+                        const name = row['name']['en'];
+                        const vol  = row['volume']||0;
+                        if(vol===0) return;
+                        const g = groupMap.get(row['groupID'])||{categoryId:0};
+                        itemMap.set(name,{typeId:row['_key'],volume:vol,groupId:row['groupID'],categoryId:g.categoryId});
+                    }
+                });
+
+                // ---- skins ---------------------------------------------------------
+                skinMap.forEach((skin,skinId)=>{
+                    itemMap.set(skin.name,{typeId:skin.typeId,volume:0.01,groupId:1950,categoryId:91});
+                });
+
+                // ---- fallback boosters ---------------------------------------------
+                Object.entries(fallbackItemMap).forEach(([n,i])=>{
+                    if(!itemMap.has(n)) itemMap.set(n,i);
+                });
+
+                console.log('Item map built:',itemMap.size);
+                loaded = true;
+            }catch(e){
+                console.error('Data load error:',e);
+                alert('Failed to load data: '+e.message);
+            }
+        }
+
+        function updateProgress(cur,tot){
+            const p = Math.round((cur/tot)*100);
+            document.getElementById('loading').innerHTML = `Loading ${p}%...`;
+        }
+
+        async function calculate(){
+            document.getElementById('loading').style.display='inline-block';
+            document.getElementById('loading').innerHTML='Loading 0%...';
+            await loadData(updateProgress);
+            document.getElementById('loading').innerHTML='Processing results...';
+
+            const txt = document.getElementById('input').value;
+            const lines = txt.trim().split('\n').filter(l=>l.trim());
+            const totals = new Map();
+
+            for(let line of lines){
+                const parts = line.trim().split(/\s+/);
+                if(parts.length<2) continue;
+                const qty = parseInt(parts.pop());
+                if(isNaN(qty)||qty<=0) continue;
+                const name = parts.join(' ');
+                totals.set(name,(totals.get(name)||0)+qty);
+            }
+
+            const items = Array.from(totals,([n,q])=>({name:n,qty:q}));
+            if(items.length===0){
+                document.getElementById('results').innerHTML='<p>No valid items parsed.</p>';
+                document.getElementById('loading').style.display='none';
+                return;
+            }
+
+            const typeIds = new Set();
+            items.forEach(it=>{
+                const info = itemMap.get(it.name);
+                if(!info){
+                    nameToInfo.set(it.name,{error:'Item not found'});
+                }else{
+                    nameToInfo.set(it.name,{typeId:info.typeId,volume:info.volume,groupId:info.groupId,categoryId:info.categoryId});
+                    typeIds.add(info.typeId);
+                }
+            });
+
+            let prices = {};
+            if(typeIds.size){
+                try{
+                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${[...typeIds].join(',')}`;
+                    const r = await fetch(agg);
+                    if(r.ok) prices = await r.json();
+                }catch(e){ console.error('Price fetch error:',e); }
+            }
+
+            let totalBuyback = 0;
+            const rows = [];
+
+            for(let it of items){
+                const info = nameToInfo.get(it.name);
+                let tr = `<tr><td>${it.name}</td><td>${it.qty}</td>`;
+
+                if(info.error){
+                    tr += `<td colspan="4" class="error">Error: ${info.error}</td></tr>`;
+                    rows.push(tr);
+                    continue;
+                }
+
+                const maxBuy = parseFloat(prices[info.typeId]?.buy?.max||'0');
+                const iskM3   = maxBuy / info.volume;
+                const taxRate = iskM3>=2500?10:20;
+                const offerPer = maxBuy*(1-taxRate/100);
+                const offerTot = offerPer*it.qty;
+
+                totalBuyback += offerTot;
+
+                tr += `<td>${maxBuy.toLocaleString()}</td>
+                       <td>${Math.round(iskM3)}</td>
+                       <td>${taxRate}%</td>
+                       <td>${Math.round(offerTot).toLocaleString()}</td></tr>`;
+                rows.push(tr);
+            }
+
+            const html = `
+                <div class="total">Buyback Offer: ${Math.round(totalBuyback).toLocaleString()} ISK</div>
+                <table>
+                    <tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Corp Tax %</th><th>Buyback Offer (ISK)</th></tr>
+                    ${rows.join('')}
+                </table>`;
+
+            document.getElementById('results').innerHTML = html;
+            document.getElementById('loading').style.display='none';
+        }
+    </script>
+</body>
+</html>
