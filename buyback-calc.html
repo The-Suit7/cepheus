@@ -20,7 +20,7 @@
 </head>
 <body>
     <h1>EVE Online Buyback Tool</h1>
-    <p class="info">Paste your inventory items below in the format: Item Name Quantity (one per line). Duplicate items will be aggregated.</p>
+    <p class="info">Paste your inventory items below in the format: <code>Item Name Quantity</code> (one per line). Duplicates are summed.</p>
     <p class="info"><strong>Tax:</strong> 10% on Jita max buy if ISK per m³ ≥ 2500, otherwise 20%.</p>
     <textarea id="input" placeholder="Microwave L 13&#10;Valkyrie I 3&#10;..."></textarea>
     <br>
@@ -29,86 +29,123 @@
     <div id="results"></div>
 
     <script>
-        // Hardcoded fallback map for items that fail strict search or matching
-        const fallbackItemMap = {
-            'EFFA Compact Assault Damage Control': {typeId: 5421, volume: 5, groupId: 60, categoryId: 7},
-            'FFR Enduring Assault Damage Control': {typeId: 5423, volume: 5, groupId: 60, categoryId: 7}
-            // Add more mappings as needed for other items
-        };
-
-        const itemMap = new Map();
-        const nameToInfo = new Map();
-        const materialsMap = new Map();
-        const groupMap = new Map();
-        const categoryMap = new Map();
+        // -------------------------------------------------
+        // Data structures
+        // -------------------------------------------------
+        const itemMap        = new Map();   // name → {typeId, volume, groupId, categoryId}
+        const nameToInfo     = new Map();   // temporary per-calculation map
+        const materialsMap   = new Map();   // typeId → array of materials (for reprocess calc)
+        const groupMap       = new Map();   // groupID → {name, categoryId}
+        const categoryMap    = new Map();   // categoryID → name
+        const skinMap        = new Map();   // skinID → {typeId, name}
         let loaded = false;
 
+        // -------------------------------------------------
+        // Helper: load a JSONL file
+        // -------------------------------------------------
         async function loadJsonl(url) {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
             const text = await res.text();
-            const lines = text.trim().split('\n').filter(l => l.trim());
-            return lines.map(line => JSON.parse(line));
+            return text.trim().split('\n')
+                       .filter(l => l.trim())
+                       .map(l => JSON.parse(l));
         }
 
+        // -------------------------------------------------
+        // Load all static data (including skins)
+        // -------------------------------------------------
         async function loadData(updateProgress) {
+            if (loaded) return;
             console.log('Starting data load...');
             try {
-                const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const totalSteps = 9; // categories + groups + typeMaterials + 6 types
-                let currentStep = 0;
+                const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
+                const totalSteps = 11;               // 3 core + 6 types + 2 skin files
+                let step = 0;
 
-                // Load categories.jsonl
-                updateProgress(currentStep, totalSteps);
-                const categories = await loadJsonl(baseUrl + 'categories.jsonl');
-                categories.forEach(row => {
-                    categoryMap.set(row['_key'], row['name']['en']);
-                });
+                // 1. categories
+                updateProgress(step, totalSteps);
+                const cats = await loadJsonl(base + 'categories.jsonl');
+                cats.forEach(r => categoryMap.set(r['_key'], r['name']['en']));
                 console.log('Categories loaded:', categoryMap.size);
-                currentStep++;
+                step++;
 
-                // Load groups.jsonl
-                updateProgress(currentStep, totalSteps);
-                const groups = await loadJsonl(baseUrl + 'groups.jsonl');
-                groups.forEach(row => {
-                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
-                });
+                // 2. groups
+                updateProgress(step, totalSteps);
+                const grps = await loadJsonl(base + 'groups.jsonl');
+                grps.forEach(r => groupMap.set(r['_key'], {name: r['name']['en'], categoryId: r['categoryID']}));
                 console.log('Groups loaded:', groupMap.size);
-                currentStep++;
+                step++;
 
-                // Load typeMaterials.jsonl
-                updateProgress(currentStep, totalSteps);
-                const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
-                typeMaterials.forEach(row => {
-                    materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                // 3. typeMaterials (reprocess data)
+                updateProgress(step, totalSteps);
+                const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
+                tmats.forEach(r => {
+                    materialsMap.set(r['_key'],
+                        r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
                 });
                 console.log('TypeMaterials loaded:', materialsMap.size);
-                currentStep++;
+                step++;
 
-                // Load all split types files (types1.jsonl to types6.jsonl)
+                // 4-9. types1 … types6
                 const types = [];
                 for (let i = 1; i <= 6; i++) {
-                    updateProgress(currentStep, totalSteps);
-                    const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
-                    types.push(...typesPart);
-                    console.log(`Loaded types${i}.jsonl: ${typesPart.length} entries`);
-                    currentStep++;
+                    updateProgress(step, totalSteps);
+                    const part = await loadJsonl(base + `types${i}.jsonl`);
+                    types.push(...part);
+                    console.log(`Loaded types${i}.jsonl: ${part.length} entries`);
+                    step++;
                 }
                 console.log('Total types loaded:', types.length);
 
-                // Process types
+                // 10. skins.jsonl
+                updateProgress(step, totalSteps);
+                const skins = await loadJsonl(base + 'skins.jsonl');
+                skins.forEach(r => {
+                    const name = r['skinName']?.['en'] || r['name']?.['en'] || 'Unknown Skin';
+                    skinMap.set(r['_key'], {typeId: r['typeID'], name});
+                });
+                console.log('Skins loaded:', skinMap.size);
+                step++;
+
+                // 11. skinMaterials.jsonl (optional – only needed for reprocess of skins)
+                updateProgress(step, totalSteps);
+                const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
+                skinMats.forEach(r => {
+                    materialsMap.set(r['_key'],
+                        r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                });
+                console.log('SkinMaterials loaded:', skinMats.length);
+                step++;
+
+                // ---- Build main item map (regular items) ----
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
-                        const volume = row['volume'] || 0;
-                        if (volume === 0) return;
-                        const groupId = row['groupID'];
-                        const groupInfo = groupMap.get(groupId) || {categoryId: 0};
-                        itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
+                        const vol  = row['volume'] || 0;
+                        if (vol === 0) return;
+                        const gInfo = groupMap.get(row['groupID']) || {categoryId: 0};
+                        itemMap.set(name, {
+                            typeId: row['_key'],
+                            volume: vol,
+                            groupId: row['groupID'],
+                            categoryId: gInfo.categoryId
+                        });
                     }
                 });
-                console.log('Item map built:', itemMap.size);
 
+                // ---- Add skins to the map (they usually have volume 0.01) ----
+                skinMap.forEach((skin, skinId) => {
+                    const baseInfo = itemMap.get(skin.name) || {};   // fallback if skin name already exists
+                    itemMap.set(skin.name, {
+                        typeId: skin.typeId,
+                        volume: 0.01,                     // skins are 0.01 m³
+                        groupId: 1950,                    // Skin group ID (fixed)
+                        categoryId: 91                    // Apparel category
+                    });
+                });
+
+                console.log('Item map built (incl. skins):', itemMap.size);
                 loaded = true;
                 console.log('Data load complete.');
             } catch (e) {
@@ -118,37 +155,20 @@
         }
 
         function updateProgress(current, total) {
-            const percentage = Math.round((current / total) * 100);
-            document.getElementById('loading').innerHTML = `Loading ${percentage}%...`;
+            const pct = Math.round((current / total) * 100);
+            document.getElementById('loading').innerHTML = `Loading ${pct}%...`;
         }
 
-        // Helper: Determine reprocessing yield
-        function getReprocessYield(categoryId) {
-            const categoryName = categoryMap.get(categoryId) || '';
-            if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
-            return 0.55; // Default for modules
-        }
-
-        // Hardcoded mineral names for core minerals
-        function getMineralName(id) {
-            const names = {
-                34: 'Tritanium',
-                35: 'Pyerite',
-                36: 'Mexallon',
-                37: 'Isogen',
-                38: 'Nocxium',
-                39: 'Zydrine',
-                40: 'Megacyte'
-            };
-            return names[id] || `Mineral ${id}`;
-        }
-
+        // -------------------------------------------------
+        // Main calculation
+        // -------------------------------------------------
         async function calculate() {
             document.getElementById('loading').style.display = 'inline-block';
             document.getElementById('loading').innerHTML = 'Loading 0%...';
             await loadData(updateProgress);
-            document.getElementById('loading').innerHTML = 'Loading 100%... Processing results...';
+            document.getElementById('loading').innerHTML = 'Processing results...';
 
+            // ---- Parse input ----
             const text = document.getElementById('input').value;
             const lines = text.trim().split('\n').filter(l => l.trim());
             const itemTotals = new Map();
@@ -160,8 +180,7 @@
                 const qty = parseInt(qtyStr);
                 if (isNaN(qty) || qty <= 0) continue;
                 const name = parts.join(' ');
-                const currentQty = itemTotals.get(name) || 0;
-                itemTotals.set(name, currentQty + qty);
+                itemTotals.set(name, (itemTotals.get(name) || 0) + qty);
             }
 
             const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
@@ -171,81 +190,76 @@
                 return;
             }
 
+            // ---- Resolve type IDs & fetch prices ----
             const allTypeIds = new Set();
             const allMaterialIds = new Set();
+
             items.forEach(item => {
-                let info = itemMap.get(item.name);
-                if (!info) {
-                    info = fallbackItemMap[item.name];
-                }
+                const info = itemMap.get(item.name);
                 if (!info) {
                     nameToInfo.set(item.name, {error: 'Item not found'});
                 } else {
-                    nameToInfo.set(item.name, {typeId: info.typeId, volume: info.volume, groupId: info.groupId, categoryId: info.categoryId});
+                    nameToInfo.set(item.name, {
+                        typeId: info.typeId,
+                        volume: info.volume,
+                        groupId: info.groupId,
+                        categoryId: info.categoryId
+                    });
                     allTypeIds.add(info.typeId);
-                    const materials = materialsMap.get(info.typeId) || [];
-                    materials.forEach(mat => allMaterialIds.add(mat.materialId));
+                    const mats = materialsMap.get(info.typeId) || [];
+                    mats.forEach(m => allMaterialIds.add(m.materialId));
                 }
             });
 
             const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
             let prices = {};
-            if (typeIdsToFetch.length > 0) {
+            if (typeIdsToFetch.length) {
                 try {
-                    const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
-                    const res = await fetch(aggUrl);
-                    if (res.ok) {
-                        prices = await res.json();
-                    } else {
-                        console.error('Price fetch failed:', res.status);
-                    }
-                } catch (e) {
-                    console.error('Price fetch error:', e);
-                }
+                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const res = await fetch(agg);
+                    if (res.ok) prices = await res.json();
+                } catch (e) { console.error('Price fetch error:', e); }
             }
 
+            // ---- Build rows & totals ----
             let totalMaxBuy = 0;
-            let buybackOffer = 0;
-            const tableRows = [];
+            let totalBuyback = 0;
+            const rows = [];
 
             for (let item of items) {
                 const info = nameToInfo.get(item.name);
-                let row = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
+                let tr = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
 
                 if (info.error) {
-                    row += `<td colspan="4" class="error">Error: ${info.error}</td></tr>`;
-                    tableRows.push(row);
+                    tr += `<td colspan="4" class="error">Error: ${info.error}</td></tr>`;
+                    rows.push(tr);
                     continue;
                 }
 
-                const typeId = info.typeId;
-                const buyStr = prices[typeId]?.buy?.max;
-                const maxBuy = parseFloat(buyStr) || 0;
+                const maxBuy = parseFloat(prices[info.typeId]?.buy?.max || '0');
+                const iskM3   = maxBuy / info.volume;
 
-                const itemM3 = info.volume;
-                const iskPerM3 = maxBuy / itemM3;
+                const taxRate = iskM3 >= 2500 ? 10 : 20;
+                const offerPer = maxBuy * (1 - taxRate/100);
+                const offerTot = offerPer * item.qty;
 
-                const taxRate = iskPerM3 >= 2500 ? 10 : 20;
-                const corpTax = taxRate + '%';
-                const buybackOfferPerUnit = maxBuy * (1 - taxRate / 100);
-                const totalBuybackOfferItem = buybackOfferPerUnit * item.qty;
+                totalMaxBuy   += maxBuy * item.qty;
+                totalBuyback  += offerTot;
 
-                totalMaxBuy += maxBuy * item.qty;
-                buybackOffer += totalBuybackOfferItem;
-
-                row += `<td>${maxBuy.toLocaleString()}</td>
-                        <td>${Math.round(iskPerM3)}</td>
-                        <td>${corpTax}</td>
-                        <td>${Math.round(totalBuybackOfferItem).toLocaleString()}</td></tr>`;
-
-                tableRows.push(row);
+                tr += `<td>${maxBuy.toLocaleString()}</td>
+                       <td>${Math.round(iskM3)}</td>
+                       <td>${taxRate}%</td>
+                       <td>${Math.round(offerTot).toLocaleString()}</td></tr>`;
+                rows.push(tr);
             }
 
-            let html = '<div class="total">Buyback Offer: ' + Math.round(buybackOffer).toLocaleString() + ' ISK</div>';
-
-            html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Corp Tax %</th><th>Buyback Offer (ISK)</th></tr>';
-            html += tableRows.join('');
-            html += '</table>';
+            // ---- Final HTML ----
+            const html = `
+                <div class="total">Buyback Offer: ${Math.round(totalBuyback).toLocaleString()} ISK</div>
+                <table>
+                    <tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Corp Tax %</th><th>Buyback Offer (ISK)</th></tr>
+                    ${rows.join('')}
+                </table>`;
 
             document.getElementById('results').innerHTML = html;
             document.getElementById('loading').style.display = 'none';
