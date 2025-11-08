@@ -8,7 +8,7 @@
         body { font-family: Arial, sans-serif; margin: 20px; }
         textarea { width: 100%; height: 200px; }
         button { margin: 10px 0; padding: 10px; }
-        table { border-collapse: collapse; width: 100%; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         #results { margin-top: 20px; }
@@ -34,7 +34,6 @@
         const fallbackItemMap = {
             'EFFA Compact Assault Damage Control': {typeId: 5421, volume: 5, groupId: 60, categoryId: 7},
             'FFR Enduring Assault Damage Control': {typeId: 5423, volume: 5, groupId: 60, categoryId: 7}
-            // Add more mappings as needed for other items
         };
 
         const itemMap = new Map();
@@ -53,51 +52,34 @@
         }
 
         async function loadData(updateProgress) {
+            if (loaded) return;
             console.log('Starting data load...');
             try {
                 const baseUrl = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const totalSteps = 9; // categories + groups + typeMaterials + 6 types
+                const totalSteps = 9;
                 let currentStep = 0;
 
-                // Load categories.jsonl
-                updateProgress(currentStep, totalSteps);
+                updateProgress(currentStep++, totalSteps);
                 const categories = await loadJsonl(baseUrl + 'categories.jsonl');
-                categories.forEach(row => {
-                    categoryMap.set(row['_key'], row['name']['en']);
-                });
-                console.log('Categories loaded:', categoryMap.size);
-                currentStep++;
+                categories.forEach(row => categoryMap.set(row['_key'], row['name']['en']));
 
-                // Load groups.jsonl
-                updateProgress(currentStep, totalSteps);
+                updateProgress(currentStep++, totalSteps);
                 const groups = await loadJsonl(baseUrl + 'groups.jsonl');
-                groups.forEach(row => {
-                    groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']});
-                });
-                console.log('Groups loaded:', groupMap.size);
-                currentStep++;
+                groups.forEach(row => groupMap.set(row['_key'], {name: row['name']['en'], categoryId: row['categoryID']}));
 
-                // Load typeMaterials.jsonl
-                updateProgress(currentStep, totalSteps);
+                updateProgress(currentStep++, totalSteps);
                 const typeMaterials = await loadJsonl(baseUrl + 'typeMaterials.jsonl');
                 typeMaterials.forEach(row => {
                     materialsMap.set(row['_key'], row['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
                 });
-                console.log('TypeMaterials loaded:', materialsMap.size);
-                currentStep++;
 
-                // Load all split types files (types1.jsonl to types6.jsonl)
                 const types = [];
                 for (let i = 1; i <= 6; i++) {
-                    updateProgress(currentStep, totalSteps);
+                    updateProgress(currentStep++, totalSteps);
                     const typesPart = await loadJsonl(baseUrl + `types${i}.jsonl`);
                     types.push(...typesPart);
-                    console.log(`Loaded types${i}.jsonl: ${typesPart.length} entries`);
-                    currentStep++;
                 }
-                console.log('Total types loaded:', types.length);
 
-                // Process types
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
@@ -108,7 +90,6 @@
                         itemMap.set(name, {typeId: row['_key'], volume, groupId, categoryId: groupInfo.categoryId});
                     }
                 });
-                console.log('Item map built:', itemMap.size);
 
                 loaded = true;
                 console.log('Data load complete.');
@@ -123,14 +104,12 @@
             document.getElementById('loading').innerHTML = `Loading ${percentage}%...`;
         }
 
-        // Helper: Determine reprocessing yield
         function getReprocessYield(categoryId) {
             const categoryName = categoryMap.get(categoryId) || '';
             if (categoryName.toLowerCase().includes('asteroid')) return 0.90;
-            return 0.55; // Default for modules
+            return 0.55;
         }
 
-        // Hardcoded mineral names for core minerals
         function getMineralName(id) {
             const names = {
                 34: 'Tritanium',
@@ -176,9 +155,7 @@
             const allMaterialIds = new Set();
             items.forEach(item => {
                 let info = itemMap.get(item.name);
-                if (!info) {
-                    info = fallbackItemMap[item.name];
-                }
+                if (!info) info = fallbackItemMap[item.name];
                 if (!info) {
                     nameToInfo.set(item.name, {error: 'Item not found'});
                 } else {
@@ -195,11 +172,7 @@
                 try {
                     const aggUrl = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
                     const res = await fetch(aggUrl);
-                    if (res.ok) {
-                        prices = await res.json();
-                    } else {
-                        console.error('Price fetch failed:', res.status);
-                    }
+                    if (res.ok) prices = await res.json();
                 } catch (e) {
                     console.error('Price fetch error:', e);
                 }
@@ -209,8 +182,7 @@
             let totalMinSell = 0;
             let totalReprocess = 0;
             const tableRows = [];
-
-            const mineralTotals = new Map(); // Mineral ID to total quantity
+            const mineralTotals = new Map();
 
             for (let item of items) {
                 const info = nameToInfo.get(item.name);
@@ -240,26 +212,30 @@
 
                 for (let mat of materials) {
                     const matName = getMineralName(mat.materialId) || 'Unknown';
-                    const actualQty = Math.floor(mat.quantity * yieldRate) * item.qty; // Total for qty
-                    mineralList.push(`${matName}: ${actualQty / item.qty}`); // Per unit in list
-                    const matVol = 0.01; // Default for minerals
-                    reprocessM3 += actualQty * matVol / item.qty; // Per unit
+                    const actualQty = Math.floor(mat.quantity * yieldRate) * item.qty;
+                    mineralList.push(`${matName}: ${actualQty / item.qty}`);
+                    const matVol = 0.01;
+                    reprocessM3 += actualQty * matVol / item.qty;
                     const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
-                    reprocessValue += (actualQty / item.qty) * matPrice; // Per unit
+                    reprocessValue += (actualQty / item.qty) * matPrice;
 
-                    // Accumulate total minerals
                     const currentTotal = mineralTotals.get(mat.materialId) || 0;
                     mineralTotals.set(mat.materialId, currentTotal + actualQty);
                 }
 
+                // NEW LOGIC: ISK/m³ >= 1500 AND (maxBuy > 1.2x reprocess OR minSell >= 1.4x reprocess)
+                const iskPerM3Threshold = iskPerM3 >= 1500;
                 const cond1 = maxBuy > reprocessValue * 1.20;
                 const cond2 = minSell >= reprocessValue * 1.40;
-                let worthSelling = 'No';
-                let worthSellingLabel = 'No';
-                if (cond1 || cond2) {
-                    worthSelling = 'Yes';
-                    worthSellingLabel = minSell >= maxBuy * 1.3 ? 'Yes (Min Sell)' : 'Yes (Max Buy)';
+                let worthSelling = '';
+                if (iskPerM3Threshold && (cond1 || cond2)) {
+                    if (cond1 && cond2) worthSelling = 'Yes (Both)';
+                    else if (cond1) worthSelling = 'Yes (Max Buy)';
+                    else worthSelling = 'Yes (Min Sell)';
+                } else {
+                    worthSelling = 'No';
                 }
+                const worthSellingColor = worthSelling.includes('Yes') ? 'green' : 'red';
 
                 totalMaxBuy += maxBuy * item.qty;
                 totalMinSell += minSell * item.qty;
@@ -272,12 +248,11 @@
                         <td>${mineralList.join('<br>') || 'None'}</td>
                         <td>${reprocessM3.toFixed(2)}</td>
                         <td>${reprocessValue.toLocaleString()}</td>
-                        <td><span style="color:${worthSelling === 'Yes' ? 'green' : 'red'};">${worthSellingLabel}</span></td></tr>`;
+                        <td><span style="color:${worthSellingColor};">${worthSelling}</span></td></tr>`;
 
                 tableRows.push(row);
             }
 
-            // Build mineral totals HTML
             let mineralHtml = '<div class="mineral-total"><strong>Total Minerals:</strong><ul>';
             for (let [id, totalQty] of mineralTotals) {
                 const matName = getMineralName(id) || 'Unknown';
@@ -288,7 +263,6 @@
             let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
             html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
             html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
-
             html += mineralHtml;
 
             html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>ISK per m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
@@ -296,6 +270,7 @@
             html += '</table>';
 
             document.getElementById('results').innerHTML = html;
+            document.getElementById('loading').style.display = 'none';
         }
     </script>
 </body>
