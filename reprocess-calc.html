@@ -236,17 +236,16 @@
 
                 const cond1 = maxBuy > reprocessValue * 1.20;
                 const cond2 = minSell >= reprocessValue * 1.40;
-                let worthSelling = '';
-                if (cond1 && cond2) {
-                    worthSelling = 'Yes (Both)';
-                } else if (cond1) {
-                    worthSelling = 'Yes (Max Buy)';
-                } else if (cond2) {
-                    worthSelling = 'Yes (Min Sell)';
-                } else {
-                    worthSelling = 'No';
+                let worthSelling = 'No';
+                let worthSellingLabel = 'No';
+                if (cond1 || cond2) {
+                    worthSelling = 'Yes';
+                    if (cond2 && minSell >= maxBuy * 1.3) {
+                        worthSellingLabel = 'Yes (Min Sell)';
+                    } else {
+                        worthSellingLabel = 'Yes (Max Buy)';
+                    }
                 }
-                const worthSellingColor = worthSelling.includes('Yes') ? 'green' : 'red';
 
                 totalMaxBuy += maxBuy * item.qty;
                 totalMinSell += minSell * item.qty;
@@ -259,7 +258,7 @@
                         <td>${mineralList.join('<br>') || 'None'}</td>
                         <td>${reprocessM3.toFixed(2)}</td>
                         <td>${reprocessValue.toLocaleString()}</td>
-                        <td><span style="color:${worthSellingColor};">${worthSelling}</span></td></tr>`;
+                        <td><span style="color:${worthSelling === 'Yes' ? 'green' : 'red'};">${worthSellingLabel}</span></td></tr>`;
 
                 tableRows.push(row);
             }
