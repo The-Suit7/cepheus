@@ -234,7 +234,7 @@
                     mineralTotals.set(mat.materialId, currentTotal + actualQty);
                 }
 
-                const worthSelling = (maxBuy > reprocessValue * 1.10) || (minSell >= reprocessValue * 1.20);
+                const worthSelling = (maxBuy > reprocessValue * 1.20) || (minSell >= reprocessValue * 1.40);
 
                 totalMaxBuy += maxBuy * item.qty;
                 totalMinSell += minSell * item.qty;
