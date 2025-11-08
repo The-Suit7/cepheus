@@ -33,15 +33,15 @@
         // Data structures
         // -------------------------------------------------
         const itemMap        = new Map();   // name → {typeId, volume, groupId, categoryId}
-        const nameToInfo     = new Map();   // temporary per-calculation map
-        const materialsMap   = new Map();   // typeId → array of materials (for reprocess calc)
-        const groupMap       = new Map();   // groupID → {name, categoryId}
-        const categoryMap    = new Map();   // categoryID → name
+        const nameToInfo     = new Map();
+        const materialsMap   = new Map();   // typeId → array of materials
+        const groupMap       = new Map();
+        const categoryMap    = new Map();
         const skinMap        = new Map();   // skinID → {typeId, name}
         let loaded = false;
 
         // -------------------------------------------------
-        // Helper: load a JSONL file
+        // Helper: load JSONL
         // -------------------------------------------------
         async function loadJsonl(url) {
             const res = await fetch(url);
@@ -53,72 +53,63 @@
         }
 
         // -------------------------------------------------
-        // Load all static data (including skins)
+        // Load all static data (safe handling of skinMaterials)
         // -------------------------------------------------
         async function loadData(updateProgress) {
             if (loaded) return;
             console.log('Starting data load...');
             try {
                 const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const totalSteps = 11;               // 3 core + 6 types + 2 skin files
+                const totalSteps = 11;
                 let step = 0;
 
                 // 1. categories
-                updateProgress(step, totalSteps);
+                updateProgress(step++, totalSteps);
                 const cats = await loadJsonl(base + 'categories.jsonl');
                 cats.forEach(r => categoryMap.set(r['_key'], r['name']['en']));
-                console.log('Categories loaded:', categoryMap.size);
-                step++;
 
                 // 2. groups
-                updateProgress(step, totalSteps);
+                updateProgress(step++, totalSteps);
                 const grps = await loadJsonl(base + 'groups.jsonl');
                 grps.forEach(r => groupMap.set(r['_key'], {name: r['name']['en'], categoryId: r['categoryID']}));
-                console.log('Groups loaded:', groupMap.size);
-                step++;
 
-                // 3. typeMaterials (reprocess data)
-                updateProgress(step, totalSteps);
+                // 3. typeMaterials
+                updateProgress(step++, totalSteps);
                 const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
                 tmats.forEach(r => {
-                    materialsMap.set(r['_key'],
-                        r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                    if (r['materials']) {
+                        materialsMap.set(r['_key'],
+                            r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                    }
                 });
-                console.log('TypeMaterials loaded:', materialsMap.size);
-                step++;
 
                 // 4-9. types1 … types6
                 const types = [];
                 for (let i = 1; i <= 6; i++) {
-                    updateProgress(step, totalSteps);
+                    updateProgress(step++, totalSteps);
                     const part = await loadJsonl(base + `types${i}.jsonl`);
                     types.push(...part);
-                    console.log(`Loaded types${i}.jsonl: ${part.length} entries`);
-                    step++;
                 }
-                console.log('Total types loaded:', types.length);
 
                 // 10. skins.jsonl
-                updateProgress(step, totalSteps);
+                updateProgress(step++, totalSteps);
                 const skins = await loadJsonl(base + 'skins.jsonl');
                 skins.forEach(r => {
                     const name = r['skinName']?.['en'] || r['name']?.['en'] || 'Unknown Skin';
                     skinMap.set(r['_key'], {typeId: r['typeID'], name});
                 });
-                console.log('Skins loaded:', skinMap.size);
-                step++;
 
-                // 11. skinMaterials.jsonl (optional – only needed for reprocess of skins)
-                updateProgress(step, totalSteps);
+                // 11. skinMaterials.jsonl – SAFE handling
+                updateProgress(step++, totalSteps);
                 const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
                 skinMats.forEach(r => {
-                    materialsMap.set(r['_key'],
-                        r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                    if (r['materials'] && Array.isArray(r['materials'])) {
+                        materialsMap.set(r['_key'],
+                            r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                    }
                 });
-                console.log('SkinMaterials loaded:', skinMats.length);
-                step++;
 
-                // ---- Build main item map (regular items) ----
+                // Build main item map (regular items)
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
@@ -134,14 +125,13 @@
                     }
                 });
 
-                // ---- Add skins to the map (they usually have volume 0.01) ----
+                // Add skins to item map
                 skinMap.forEach((skin, skinId) => {
-                    const baseInfo = itemMap.get(skin.name) || {};   // fallback if skin name already exists
                     itemMap.set(skin.name, {
                         typeId: skin.typeId,
-                        volume: 0.01,                     // skins are 0.01 m³
-                        groupId: 1950,                    // Skin group ID (fixed)
-                        categoryId: 91                    // Apparel category
+                        volume: 0.01,
+                        groupId: 1950,
+                        categoryId: 91
                     });
                 });
 
@@ -168,7 +158,6 @@
             await loadData(updateProgress);
             document.getElementById('loading').innerHTML = 'Processing results...';
 
-            // ---- Parse input ----
             const text = document.getElementById('input').value;
             const lines = text.trim().split('\n').filter(l => l.trim());
             const itemTotals = new Map();
@@ -190,7 +179,6 @@
                 return;
             }
 
-            // ---- Resolve type IDs & fetch prices ----
             const allTypeIds = new Set();
             const allMaterialIds = new Set();
 
@@ -221,7 +209,6 @@
                 } catch (e) { console.error('Price fetch error:', e); }
             }
 
-            // ---- Build rows & totals ----
             let totalMaxBuy = 0;
             let totalBuyback = 0;
             const rows = [];
@@ -253,7 +240,6 @@
                 rows.push(tr);
             }
 
-            // ---- Final HTML ----
             const html = `
                 <div class="total">Buyback Offer: ${Math.round(totalBuyback).toLocaleString()} ISK</div>
                 <table>
