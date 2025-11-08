@@ -30,19 +30,49 @@
 
     <script>
         // -------------------------------------------------
-        // Data structures
+        // Fallback for non-marketable items (boosters, etc.)
         // -------------------------------------------------
-        const itemMap        = new Map();   // name → {typeId, volume, groupId, categoryId}
+        const fallbackItemMap = {
+            // Boosters
+            'Alignment Sequencer': { typeId: 41430, volume: 1, groupId: 314, categoryId: 20 },
+            'Fermionic Sequencer': { typeId: 41432, volume: 1, groupId: 314, categoryId: 20 },
+            'Kerr Sequencer': { typeId: 41431, volume: 1, groupId: 314, categoryId: 20 },
+
+            // SKINs (example – will be loaded from skins.jsonl)
+            'Angular Deployment - Unlimited': { typeId: 55484, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Atomic Sheen Gloss - Unlimited': { typeId: 55485, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Biohazard Canary Matte - Limited': { typeId: 55486, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Boosted Mint Satin - Unlimited': { typeId: 55487, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Callie After Dark Matte - Unlimited': { typeId: 55488, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Citric Substitute Satin - Limited': { typeId: 55489, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Dark Abyss Satin - Unlimited': { typeId: 55490, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Deep Void Matte - Limited': { typeId: 55491, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Fade In - Unlimited': { typeId: 55492, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Flaylock Steel Metallic - Limited': { typeId: 55493, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Four from One - Unlimited': { typeId: 55494, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Hex Recursion - Unlimited': { typeId: 55495, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Imperial Plum Gloss - Limited': { typeId: 55496, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Muted Chrome Metallic - Limited': { typeId: 55497, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Planetfall Green Satin - Limited': { typeId: 55498, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Plasmic Hepatizon Metallic - Unlimited': { typeId: 55499, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Polished Iron Metallic - Unlimited': { typeId: 55500, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Royal Aureate Metallic - Limited': { typeId: 55501, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Sacred Stone Satin - Unlimited': { typeId: 55502, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Stellar White Satin - Unlimited': { typeId: 55503, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Strawberry Fedo Matte - Unlimited': { typeId: 55504, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Suppressed Lavender Matte - Limited': { typeId: 55505, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Violet Blight Gloss - Limited': { typeId: 55506, volume: 0.01, groupId: 1950, categoryId: 91 },
+            'Zakura Cherry Pink Matte - Unlimited': { typeId: 55507, volume: 0.01, groupId: 1950, categoryId: 91 }
+        };
+
+        const itemMap        = new Map();
         const nameToInfo     = new Map();
-        const materialsMap   = new Map();   // typeId → array of materials
+        const materialsMap   = new Map();
         const groupMap       = new Map();
         const categoryMap    = new Map();
         const skinMap        = new Map();   // skinID → {typeId, name}
         let loaded = false;
 
-        // -------------------------------------------------
-        // Helper: load JSONL
-        // -------------------------------------------------
         async function loadJsonl(url) {
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
@@ -52,9 +82,6 @@
                        .map(l => JSON.parse(l));
         }
 
-        // -------------------------------------------------
-        // Load all static data (safe handling of skinMaterials)
-        // -------------------------------------------------
         async function loadData(updateProgress) {
             if (loaded) return;
             console.log('Starting data load...');
@@ -77,7 +104,7 @@
                 updateProgress(step++, totalSteps);
                 const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
                 tmats.forEach(r => {
-                    if (r['materials']) {
+                    if (r['materials'] && Array.isArray(r['materials'])) {
                         materialsMap.set(r['_key'],
                             r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
                     }
@@ -99,7 +126,7 @@
                     skinMap.set(r['_key'], {typeId: r['typeID'], name});
                 });
 
-                // 11. skinMaterials.jsonl – SAFE handling
+                // 11. skinMaterials.jsonl (safe)
                 updateProgress(step++, totalSteps);
                 const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
                 skinMats.forEach(r => {
@@ -109,7 +136,7 @@
                     }
                 });
 
-                // Build main item map (regular items)
+                // Build main item map
                 types.forEach(row => {
                     if (row['published'] && row['marketGroupID']) {
                         const name = row['name']['en'];
@@ -125,7 +152,7 @@
                     }
                 });
 
-                // Add skins to item map
+                // Add SKINs to itemMap
                 skinMap.forEach((skin, skinId) => {
                     itemMap.set(skin.name, {
                         typeId: skin.typeId,
@@ -135,9 +162,15 @@
                     });
                 });
 
-                console.log('Item map built (incl. skins):', itemMap.size);
+                // Add fallback items (boosters)
+                Object.entries(fallbackItemMap).forEach(([name, info]) => {
+                    if (!itemMap.has(name)) {
+                        itemMap.set(name, info);
+                    }
+                });
+
+                console.log('Item map built (incl. skins + boosters):', itemMap.size);
                 loaded = true;
-                console.log('Data load complete.');
             } catch (e) {
                 console.error('Data load error:', e);
                 alert('Failed to load data: ' + e.message + '. Check console for details.');
@@ -149,9 +182,6 @@
             document.getElementById('loading').innerHTML = `Loading ${pct}%...`;
         }
 
-        // -------------------------------------------------
-        // Main calculation
-        // -------------------------------------------------
         async function calculate() {
             document.getElementById('loading').style.display = 'inline-block';
             document.getElementById('loading').innerHTML = 'Loading 0%...';
@@ -180,8 +210,6 @@
             }
 
             const allTypeIds = new Set();
-            const allMaterialIds = new Set();
-
             items.forEach(item => {
                 const info = itemMap.get(item.name);
                 if (!info) {
@@ -194,22 +222,18 @@
                         categoryId: info.categoryId
                     });
                     allTypeIds.add(info.typeId);
-                    const mats = materialsMap.get(info.typeId) || [];
-                    mats.forEach(m => allMaterialIds.add(m.materialId));
                 }
             });
 
-            const typeIdsToFetch = [...new Set([...allTypeIds, ...allMaterialIds])];
             let prices = {};
-            if (typeIdsToFetch.length) {
+            if (allTypeIds.size > 0) {
                 try {
-                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${typeIdsToFetch.join(',')}`;
+                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${[...allTypeIds].join(',')}`;
                     const res = await fetch(agg);
                     if (res.ok) prices = await res.json();
                 } catch (e) { console.error('Price fetch error:', e); }
             }
 
-            let totalMaxBuy = 0;
             let totalBuyback = 0;
             const rows = [];
 
@@ -224,14 +248,12 @@
                 }
 
                 const maxBuy = parseFloat(prices[info.typeId]?.buy?.max || '0');
-                const iskM3   = maxBuy / info.volume;
-
+                const iskM3 = maxBuy / info.volume;
                 const taxRate = iskM3 >= 2500 ? 10 : 20;
                 const offerPer = maxBuy * (1 - taxRate/100);
                 const offerTot = offerPer * item.qty;
 
-                totalMaxBuy   += maxBuy * item.qty;
-                totalBuyback  += offerTot;
+                totalBuyback += offerTot;
 
                 tr += `<td>${maxBuy.toLocaleString()}</td>
                        <td>${Math.round(iskM3)}</td>
