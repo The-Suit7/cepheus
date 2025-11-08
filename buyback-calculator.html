@@ -5,29 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVE Online Buyback Calculator</title>
     <style>
-        body {font-family: Arial, sans-serif; margin:20px;}
-        textarea {width:100%; height:200px;}
-        button {margin:10px 0; padding:10px;}
-        table {border-collapse:collapse; width:100%; margin-top:15px;}
-        th, td {border:1px solid #ddd; padding:8px; text-align:left;}
-        th {background:#f2f2f2;}
-        #results {margin-top:20px;}
-        .error {color:red;}
-        #loading {display:none; color:#0066cc; font-weight:bold; margin-left:10px;}
-        .total {font-size:1.1em; font-weight:bold; margin:10px 0; padding:8px;
-                background:#f8f9fa; border-left:4px solid #1a5fb4;}
-        .info {font-size:0.9em; color:#555; margin-bottom:15px;}
-        .instructions {background:#e7f3ff; border-left:4px solid #007bff;
-                       padding:12px; margin:15px 0; font-size:0.95em; line-height:1.5;}
-        .instructions ol {margin:8px 0; padding-left:20px;}
-        .instructions code {background:#f0f0f0; padding:2px 5px; border-radius:3px;}
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 200px; }
+        button { margin: 10px 0; padding: 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #results { margin-top: 20px; }
+        .error { color: red; }
+        #loading { display: none; color: blue; font-weight: bold; margin-left: 10px; display: inline-block; }
+        .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
+        .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
+        .instructions { 
+            background-color: #e7f3ff; 
+            border-left: 4px solid #007bff; 
+            padding: 12px; 
+            margin: 15px 0; 
+            font-size: 0.95em; 
+            line-height: 1.5;
+        }
+        .instructions ol { margin: 8px 0; padding-left: 20px; }
+        .instructions code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
     </style>
 </head>
 <body>
     <h1>EVE Online Buyback Tool</h1>
     <p class="info">Paste your inventory items below in the format: <code>Item Name Quantity</code> (one per line). Duplicates are summed.</p>
-    <p class="info"><strong>Tax:</strong> 10 % on Jita max buy if ISK per m³ ≥ 2500, otherwise 20 %.</p>
-
+    <p class="info"><strong>Payout:</strong> 90% of Jita max buy if ISK per m³ ≥ 2500, otherwise 80%.</p>
+    
+    <!-- INSTRUCTIONS -->
     <div class="instructions">
         <strong>How to Sell to the Buyback Program:</strong>
         <ol>
@@ -46,178 +52,205 @@
     <textarea id="input" placeholder="Alignment Sequencer 3218&#10;Gamma L 52&#10;..."></textarea>
     <br>
     <button onclick="calculate()">Calculate</button>
-    <p id="loading" style="display:none;">Loading 0%...</p>
+    <p id="loading" style="display: none;">Loading 0%...</p>
     <div id="results"></div>
 
     <script>
-        /* -------------------------------------------------
-         *  Fallback for boosters (they have no marketGroupID)
-         * ------------------------------------------------- */
+        // -------------------------------------------------
+        // Fallback for non-marketable items (boosters)
+        // -------------------------------------------------
         const fallbackItemMap = {
-            'Alignment Sequencer': {typeId:41430, volume:1,   groupId:314, categoryId:20},
-            'Fermionic Sequencer': {typeId:41432, volume:1,   groupId:314, categoryId:20},
-            'Kerr Sequencer'     : {typeId:41431, volume:1,   groupId:314, categoryId:20}
+            'Alignment Sequencer': { typeId: 41430, volume: 1, groupId: 314, categoryId: 20 },
+            'Fermionic Sequencer': { typeId: 41432, volume: 1, groupId: 314, categoryId: 20 },
+            'Kerr Sequencer': { typeId: 41431, volume: 1, groupId: 314, categoryId: 20 }
         };
 
-        const itemMap      = new Map();   // name → {typeId,volume,groupId,categoryId}
-        const nameToInfo   = new Map();
-        const materialsMap = new Map();
-        const groupMap     = new Map();
-        const categoryMap  = new Map();
-        const skinMap      = new Map();   // skinID → {typeId,name}
+        const itemMap        = new Map();
+        const nameToInfo     = new Map();
+        const materialsMap   = new Map();
+        const groupMap       = new Map();
+        const categoryMap    = new Map();
+        const skinMap        = new Map();
         let loaded = false;
 
-        async function loadJsonl(url){
-            const r = await fetch(url);
-            if(!r.ok) throw new Error(`Fetch failed ${url}: ${r.status}`);
-            const txt = await r.text();
-            return txt.trim().split('\n')
-                      .filter(l=>l.trim())
-                      .map(l=>JSON.parse(l));
+        async function loadJsonl(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Fetch failed for ${url}: ${res.status}`);
+            const text = await res.text();
+            return text.trim().split('\n')
+                       .filter(l => l.trim())
+                       .map(l => JSON.parse(l));
         }
 
-        async function loadData(upd){
-            if(loaded) return;
+        async function loadData(updateProgress) {
+            if (loaded) return;
             console.log('Starting data load...');
-            try{
+            try {
                 const base = 'https://raw.githubusercontent.com/The-Suit7/cepheus/main/eve-data/';
-                const steps = 15; let s=0;
+                const totalSteps = 15;
+                let step = 0;
 
-                upd(s++,steps); const cats = await loadJsonl(base+'categories.jsonl');
-                cats.forEach(r=>categoryMap.set(r['_key'],r['name']['en']));
+                updateProgress(step++, totalSteps);
+                const cats = await loadJsonl(base + 'categories.jsonl');
+                cats.forEach(r => categoryMap.set(r['_key'], r['name']['en']));
 
-                upd(s++,steps); const grps = await loadJsonl(base+'groups.jsonl');
-                grps.forEach(r=>groupMap.set(r['_key'],{name:r['name']['en'],categoryId:r['categoryID']}));
+                updateProgress(step++, totalSteps);
+                const grps = await loadJsonl(base + 'groups.jsonl');
+                grps.forEach(r => groupMap.set(r['_key'], {name: r['name']['en'], categoryId: r['categoryID']}));
 
-                upd(s++,steps); const tmats = await loadJsonl(base+'typeMaterials.jsonl');
-                tmats.forEach(r=>{ if(r['materials'] && Array.isArray(r['materials'])) {
-                    materialsMap.set(r['_key'],
-                        r['materials'].map(m=>({materialId:m['materialTypeID'],quantity:m['quantity']})));
-                }});
-
-                const types = [];
-                for(let i=1;i<=10;i++){
-                    upd(s++,steps);
-                    const part = await loadJsonl(base+`types${i}.jsonl`);
-                    types.push(...part);
-                }
-
-                upd(s++,steps); const skins = await loadJsonl(base+'skins.jsonl');
-                skins.forEach(r=>{
-                    const n = r['skinName']?.['en'] || r['name']?.['en'] || 'Unknown Skin';
-                    skinMap.set(r['_key'],{typeId:r['typeID'],name:n});
-                });
-
-                upd(s++,steps); const skinMats = await loadJsonl(base+'skinMaterials.jsonl');
-                skinMats.forEach(r=>{ if(r['materials'] && Array.isArray(r['materials'])) {
-                    materialsMap.set(r['_key'],
-                        r['materials'].map(m=>({materialId:m['materialTypeID'],quantity:m['quantity']})));
-                }});
-
-                // ---- regular items -------------------------------------------------
-                types.forEach(row=>{
-                    if(row['published'] && row['marketGroupID']){
-                        const name = row['name']['en'];
-                        const vol  = row['volume']||0;
-                        if(vol===0) return;
-                        const g = groupMap.get(row['groupID'])||{categoryId:0};
-                        itemMap.set(name,{typeId:row['_key'],volume:vol,groupId:row['groupID'],categoryId:g.categoryId});
+                updateProgress(step++, totalSteps);
+                const tmats = await loadJsonl(base + 'typeMaterials.jsonl');
+                tmats.forEach(r => {
+                    if (r['materials'] && Array.isArray(r['materials'])) {
+                        materialsMap.set(r['_key'],
+                            r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
                     }
                 });
 
-                // ---- skins ---------------------------------------------------------
-                skinMap.forEach((skin,skinId)=>{
-                    itemMap.set(skin.name,{typeId:skin.typeId,volume:0.01,groupId:1950,categoryId:91});
+                const types = [];
+                for (let i = 1; i <= 10; i++) {
+                    updateProgress(step++, totalSteps);
+                    const part = await loadJsonl(base + `types${i}.jsonl`);
+                    types.push(...part);
+                }
+
+                updateProgress(step++, totalSteps);
+                const skins = await loadJsonl(base + 'skins.jsonl');
+                skins.forEach(r => {
+                    const name = r['skinName']?.['en'] || r['name']?.['en'] || 'Unknown Skin';
+                    skinMap.set(r['_key'], {typeId: r['typeID'], name});
                 });
 
-                // ---- fallback boosters ---------------------------------------------
-                Object.entries(fallbackItemMap).forEach(([n,i])=>{
-                    if(!itemMap.has(n)) itemMap.set(n,i);
+                updateProgress(step++, totalSteps);
+                const skinMats = await loadJsonl(base + 'skinMaterials.jsonl');
+                skinMats.forEach(r => {
+                    if (r['materials'] && Array.isArray(r['materials'])) {
+                        materialsMap.set(r['_key'],
+                            r['materials'].map(m => ({materialId: m['materialTypeID'], quantity: m['quantity']})));
+                    }
                 });
 
-                console.log('Item map built:',itemMap.size);
+                types.forEach(row => {
+                    if (row['published'] && row['marketGroupID']) {
+                        const name = row['name']['en'];
+                        const vol  = row['volume'] || 0;
+                        if (vol === 0) return;
+                        const gInfo = groupMap.get(row['groupID']) || {categoryId: 0};
+                        itemMap.set(name, {
+                            typeId: row['_key'],
+                            volume: vol,
+                            groupId: row['groupID'],
+                            categoryId: gInfo.categoryId
+                        });
+                    }
+                });
+
+                skinMap.forEach((skin, skinId) => {
+                    itemMap.set(skin.name, {
+                        typeId: skin.typeId,
+                        volume: 0.01,
+                        groupId: 1950,
+                        categoryId: 91
+                    });
+                });
+
+                Object.entries(fallbackItemMap).forEach(([name, info]) => {
+                    if (!itemMap.has(name)) itemMap.set(name, info);
+                });
+
+                console.log('Item map built:', itemMap.size);
                 loaded = true;
-            }catch(e){
-                console.error('Data load error:',e);
-                alert('Failed to load data: '+e.message);
+            } catch (e) {
+                console.error('Data load error:', e);
+                alert('Failed to load data: ' + e.message);
             }
         }
 
-        function updateProgress(cur,tot){
-            const p = Math.round((cur/tot)*100);
-            document.getElementById('loading').innerHTML = `Loading ${p}%...`;
+        function updateProgress(current, total) {
+            const pct = Math.round((current / total) * 100);
+            document.getElementById('loading').innerHTML = `Loading ${pct}%...`;
         }
 
-        async function calculate(){
-            document.getElementById('loading').style.display='inline-block';
-            document.getElementById('loading').innerHTML='Loading 0%...';
+        async function calculate() {
+            document.getElementById('loading').style.display = 'inline-block';
+            document.getElementById('loading').innerHTML = 'Loading 0%...';
             await loadData(updateProgress);
-            document.getElementById('loading').innerHTML='Processing results...';
+            document.getElementById('loading').innerHTML = 'Fetching live Jita prices...';
 
-            const txt = document.getElementById('input').value;
-            const lines = txt.trim().split('\n').filter(l=>l.trim());
-            const totals = new Map();
+            const text = document.getElementById('input').value;
+            const lines = text.trim().split('\n').filter(l => l.trim());
+            const itemTotals = new Map();
 
-            for(let line of lines){
+            for (let line of lines) {
                 const parts = line.trim().split(/\s+/);
-                if(parts.length<2) continue;
-                const qty = parseInt(parts.pop());
-                if(isNaN(qty)||qty<=0) continue;
+                if (parts.length < 2) continue;
+                const qtyStr = parts.pop();
+                const qty = parseInt(qtyStr);
+                if (isNaN(qty) || qty <= 0) continue;
                 const name = parts.join(' ');
-                totals.set(name,(totals.get(name)||0)+qty);
+                itemTotals.set(name, (itemTotals.get(name) || 0) + qty);
             }
 
-            const items = Array.from(totals,([n,q])=>({name:n,qty:q}));
-            if(items.length===0){
-                document.getElementById('results').innerHTML='<p>No valid items parsed.</p>';
-                document.getElementById('loading').style.display='none';
+            const items = Array.from(itemTotals, ([name, qty]) => ({name, qty}));
+            if (items.length === 0) {
+                document.getElementById('results').innerHTML = '<p>No valid items parsed.</p>';
+                document.getElementById('loading').style.display = 'none';
                 return;
             }
 
-            const typeIds = new Set();
-            items.forEach(it=>{
-                const info = itemMap.get(it.name);
-                if(!info){
-                    nameToInfo.set(it.name,{error:'Item not found'});
-                }else{
-                    nameToInfo.set(it.name,{typeId:info.typeId,volume:info.volume,groupId:info.groupId,categoryId:info.categoryId});
-                    typeIds.add(info.typeId);
+            const allTypeIds = new Set();
+            items.forEach(item => {
+                const info = itemMap.get(item.name);
+                if (!info) {
+                    nameToInfo.set(item.name, {error: 'Item not found'});
+                } else {
+                    nameToInfo.set(item.name, {
+                        typeId: info.typeId,
+                        volume: info.volume,
+                        groupId: info.groupId,
+                        categoryId: info.categoryId
+                    });
+                    allTypeIds.add(info.typeId);
                 }
             });
 
             let prices = {};
-            if(typeIds.size){
-                try{
-                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${[...typeIds].join(',')}`;
-                    const r = await fetch(agg);
-                    if(r.ok) prices = await r.json();
-                }catch(e){ console.error('Price fetch error:',e); }
+            if (allTypeIds.size > 0) {
+                try {
+                    const agg = `https://market.fuzzwork.co.uk/aggregates/?region=30000142&types=${[...allTypeIds].join(',')}`;
+                    const res = await fetch(agg);
+                    if (res.ok) prices = await res.json();
+                    else throw new Error(`API returned ${res.status}`);
+                } catch (e) {
+                    console.error('Price fetch error:', e);
+                    alert('Failed to fetch live prices. Using cached data or 0.');
+                }
             }
 
             let totalBuyback = 0;
             const rows = [];
 
-            for(let it of items){
-                const info = nameToInfo.get(it.name);
-                let tr = `<tr><td>${it.name}</td><td>${it.qty}</td>`;
+            for (let item of items) {
+                const info = nameToInfo.get(item.name);
+                let tr = `<tr><td>${item.name}</td><td>${item.qty}</td>`;
 
-                if(info.error){
+                if (info.error) {
                     tr += `<td colspan="4" class="error">Error: ${info.error}</td></tr>`;
                     rows.push(tr);
                     continue;
                 }
 
-                const maxBuy = parseFloat(prices[info.typeId]?.buy?.max||'0');
-                const iskM3   = maxBuy / info.volume;
-                const taxRate = iskM3>=2500?10:20;
-                const offerPer = maxBuy*(1-taxRate/100);
-                const offerTot = offerPer*it.qty;
+                const maxBuy = parseFloat(prices[info.typeId]?.buy?.max || '0');
+                const iskM3 = maxBuy / info.volume;
+                const payoutRate = iskM3 >= 2500 ? 0.90 : 0.80;
+                const offerPer = maxBuy * payoutRate;
+                const offerTot = offerPer * item.qty;
 
                 totalBuyback += offerTot;
 
                 tr += `<td>${maxBuy.toLocaleString()}</td>
                        <td>${Math.round(iskM3)}</td>
-                       <td>${taxRate}%</td>
+                       <td>${payoutRate === 0.90 ? '90%' : '80%'}</td>
                        <td>${Math.round(offerTot).toLocaleString()}</td></tr>`;
                 rows.push(tr);
             }
@@ -225,12 +258,12 @@
             const html = `
                 <div class="total">Buyback Offer: ${Math.round(totalBuyback).toLocaleString()} ISK</div>
                 <table>
-                    <tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Corp Tax %</th><th>Buyback Offer (ISK)</th></tr>
+                    <tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>ISK per m³</th><th>Payout %</th><th>Buyback Offer (ISK)</th></tr>
                     ${rows.join('')}
                 </table>`;
 
             document.getElementById('results').innerHTML = html;
-            document.getElementById('loading').style.display='none';
+            document.getElementById('loading').style.display = 'none';
         }
     </script>
 </body>
