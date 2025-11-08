@@ -16,7 +16,6 @@
         #loading { display: none; color: blue; font-weight: bold; }
         .total { font-size: 1.1em; font-weight: bold; margin: 10px 0; padding: 8px; background-color: #f8f9fa; border-left: 4px solid #1a5fb4; }
         .info { font-size: 0.9em; color: #555; margin-bottom: 15px; }
-        .mineral-total { margin: 10px 0; padding: 10px; background-color: #e3f2fd; border-left: 4px solid #1565c0; }
     </style>
 </head>
 <body>
@@ -190,9 +189,9 @@
             let totalMaxBuy = 0;
             let totalMinSell = 0;
             let totalReprocess = 0;
-            let totalItemM3 = 0;
-            let totalReprocessM3 = 0;
             const tableRows = [];
+
+            const mineralTotals = new Map(); // Mineral ID to total quantity
 
             for (let item of items) {
                 const info = nameToInfo.get(item.name);
@@ -222,12 +221,16 @@
 
                 for (let mat of materials) {
                     const matName = getMineralName(mat.materialId) || 'Unknown';
-                    const actualQty = Math.floor(mat.quantity * yieldRate);
-                    mineralList.push(`${matName}: ${actualQty}`);
+                    const actualQty = Math.floor(mat.quantity * yieldRate) * item.qty; // Total for qty
+                    mineralList.push(`${matName}: ${actualQty / item.qty}`); // Per unit in list
                     const matVol = 0.01; // Default for minerals
-                    reprocessM3 += actualQty * matVol;
+                    reprocessM3 += actualQty * matVol / item.qty; // Per unit
                     const matPrice = parseFloat(prices[mat.materialId]?.buy?.max || '0');
-                    reprocessValue += actualQty * matPrice;
+                    reprocessValue += (actualQty / item.qty) * matPrice; // Per unit
+
+                    // Accumulate total minerals
+                    const currentTotal = mineralTotals.get(mat.materialId) || 0;
+                    mineralTotals.set(mat.materialId, currentTotal + actualQty);
                 }
 
                 const worthSelling = (iskPerM3 >= 2000) && (maxBuy > reprocessValue * 1.15);
@@ -235,8 +238,6 @@
                 totalMaxBuy += maxBuy * item.qty;
                 totalMinSell += minSell * item.qty;
                 totalReprocess += reprocessValue * item.qty;
-                totalItemM3 += itemM3 * item.qty;
-                totalReprocessM3 += reprocessM3 * item.qty;
 
                 row += `<td>${maxBuy.toLocaleString()}</td>
                         <td>${minSell.toLocaleString()}</td>
@@ -250,9 +251,19 @@
                 tableRows.push(row);
             }
 
+            // Build mineral totals HTML
+            let mineralHtml = '<div class="mineral-total"><strong>Total Minerals:</strong><ul>';
+            for (let [id, totalQty] of mineralTotals) {
+                const matName = getMineralName(id) || 'Unknown';
+                mineralHtml += `<li>${matName}: ${Math.round(totalQty).toLocaleString()}</li>`;
+            }
+            mineralHtml += '</ul></div>';
+
             let html = '<div class="total">Total Jita Max Buy: ' + Math.round(totalMaxBuy).toLocaleString() + ' ISK</div>';
             html += '<div class="total">Total Jita Min Sell: ' + Math.round(totalMinSell).toLocaleString() + ' ISK</div>';
             html += '<div class="total">Total Reprocess Value: ' + Math.round(totalReprocess).toLocaleString() + ' ISK</div>';
+
+            html += mineralHtml;
 
             html += '<table><tr><th>Item Name</th><th>Total Qty</th><th>Max Jita Buy (ISK)</th><th>Min Jita Sell (ISK)</th><th>Item m³</th><th>ISK per m³</th><th>Reprocessed Materials</th><th>Reprocessed m³</th><th>Reprocess Value (ISK)</th><th>Worth Selling?</th></tr>';
             html += tableRows.join('');
