@@ -44,8 +44,7 @@
             <li>Click <strong>Next</strong> → verify all items are checked.</li>
             <li>Click <strong>Next</strong> → copy the <strong>Buyback Offer</strong> value (shown after clicking Calculate) and paste it into the <strong>"I will receive"</strong> field.</li>
             <li>Set <strong>Expiration</strong> to <code>1 week</code> or more.</li>
-            <li>In the <strong>Description</strong> field, type <code>buyback</code> and paste your unique buyback link:<br>
-                <code>https://www.cepheuscorp.com/buyback-calc</code></li>
+            <li>In the <strong>Description</strong> field, type <code>buyback</code></li>
             <li>Click <strong>Next</strong> → review → click <strong>Finish</strong>.</li>
         </ol>
     </div>
@@ -58,7 +57,7 @@
 
     <script>
         // -------------------------------------------------
-        // Fallback for non-marketable items (boosters, etc.)
+        // Fallback for non-marketable items (boosters)
         // -------------------------------------------------
         const fallbackItemMap = {
             'Alignment Sequencer': { typeId: 41430, volume: 1, groupId: 314, categoryId: 20 },
@@ -156,16 +155,14 @@
                 });
 
                 Object.entries(fallbackItemMap).forEach(([name, info]) => {
-                    if (!itemMap.has(name)) {
-                        itemMap.set(name, info);
-                    }
+                    if (!itemMap.has(name)) itemMap.set(name, info);
                 });
 
-                console.log('Item map built (incl. skins + boosters):', itemMap.size);
+                console.log('Item map built:', itemMap.size);
                 loaded = true;
             } catch (e) {
                 console.error('Data load error:', e);
-                alert('Failed to load data: ' + e.message + '. Check console for details.');
+                alert('Failed to load data: ' + e.message);
             }
         }
 
